@@ -18,7 +18,7 @@ list_models_tool = MCPTool(
             )
         catch e
             return CallToolResult(
-                content = [Dict("type" => "text", "text" => "Error listing models: $e")],
+                content = [TextContent(text = "Error listing models: $e")],
                 is_error = true
             )
         end
@@ -64,7 +64,7 @@ find_model_tool = MCPTool(
 
         catch e
             return CallToolResult(
-                content = [Dict("type" => "text", "text" => "Error finding model: $e")],
+                content = [TextContent(text = "Error finding model: $e")],
                 is_error = true
             )
         end
@@ -95,7 +95,7 @@ get_model_info_tool = MCPTool(
             )
         catch e
             return CallToolResult(
-                content = [Dict("type" => "text", "text" => "Error fetching model info: $e")],
+                content = [TextContent(text = "Error fetching model info: $e")],
                 is_error = true
             )
         end
@@ -125,7 +125,7 @@ get_model_variables_tool = MCPTool(
             )
         catch e
             return CallToolResult(
-                content = [Dict("type" => "text", "text" => "Error fetching variables: $e")],
+                content = [TextContent(text = "Error fetching variables: $e")],
                 is_error = true
             )
         end
@@ -155,7 +155,7 @@ get_model_parameters_tool = MCPTool(
             )
         catch e
             return CallToolResult(
-                content = [Dict("type" => "text", "text" => "Error fetching parameters: $e")],
+                content = [TextContent(text = "Error fetching parameters: $e")],
                 is_error = true
             )
         end

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(julia:*)",
+      "Bash(test:*)",
+      "WebFetch(domain:juliasmlm.github.io)"
+    ]
+  }
+}
