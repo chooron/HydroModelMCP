@@ -3,6 +3,7 @@ module Calibration
 using ..Optimization
 using ..OptimizationBBO
 using ..OptimizationMetaheuristics
+using ..Metaheuristics
 using ..HydroModels
 using ..HydroModelLibrary
 using ..ComponentArrays
@@ -331,8 +332,9 @@ function calibrate_multiobjective(model_name::String, forcing_nt::NamedTuple,
         Val(DataInterpolations.LinearInterpolation)
     end
 
-    # 多目标函数: 返回向量，每个元素对应一个目标（均最小化）
-    function multi_obj_fn(θ, p)
+    # 多目标函数: 返回 (f, g, h) 三元组
+    # f: 目标函数向量, g: 不等式约束, h: 等式约束
+    function multi_obj_fn(θ)
         try
             full_params = zeros(length(all_param_names))
             ci = 1
@@ -349,7 +351,7 @@ function calibrate_multiobjective(model_name::String, forcing_nt::NamedTuple,
                 NamedTuple{Tuple(all_param_names)}(full_params)
             ))
             # 使用扩展接口运行模型
-            output = model(input_matrix, pv, p;
+            output = model(input_matrix, pv;
                           timeidx=collect(1:size(input_matrix, 2)),
                           initstates=states)
             sim = Float64.(output[end, :])
@@ -361,41 +363,77 @@ function calibrate_multiobjective(model_name::String, forcing_nt::NamedTuple,
                 # 统一最小化：越大越好的取负
                 push!(vals, Metrics.is_higher_better(obj_name) ? -mv : mv)
             end
-            return vals
+            # 返回 (目标函数, 不等式约束, 等式约束)
+            # 无约束问题：g 和 h 为空数组
+            return (vals, Float64[], Float64[])
         catch
-            return fill(Inf, length(objectives))
+            return (fill(Inf, length(objectives)), Float64[], Float64[])
         end
     end
 
-    # 使用 Metaheuristics 的多目标算法
-    alg = if uppercase(algorithm) == "NSGA2"
-        OptimizationMetaheuristics.NSGA2(N=population_size)
-    elseif uppercase(algorithm) == "NSGA3"
-        OptimizationMetaheuristics.NSGA3(N=population_size)
-    else
-        OptimizationMetaheuristics.NSGA2(N=population_size)
+    # 直接使用 Metaheuristics 包，避免 OptimizationMetaheuristics 的兼容性问题
+    bounds = Matrix{Float64}(undef, length(lb), 2)
+    for i in eachindex(lb)
+        bounds[i, 1] = lb[i]
+        bounds[i, 2] = ub[i]
     end
 
-    x0 = Sampling.generate_samples(collect(zip(lb, ub)); method="lhs", n_samples=1)[:, 1]
-    prob = OptimizationProblem(multi_obj_fn, x0; lb=lb, ub=ub)
-    sol = solve(prob, alg; maxiters=maxiters)
+    # 选择算法
+    mh_alg = if uppercase(algorithm) == "NSGA2"
+        Metaheuristics.NSGA2(N=population_size)
+    elseif uppercase(algorithm) == "NSGA3"
+        Metaheuristics.NSGA3(N=population_size)
+    else
+        Metaheuristics.NSGA2(N=population_size)
+    end
+
+    # 设置迭代次数
+    mh_alg.options.iterations = maxiters
+
+    # 运行优化 - 直接传递函数和边界
+    mh_result = Metaheuristics.optimize(multi_obj_fn, bounds, mh_alg)
 
     # 解析 Pareto 前沿
     pareto_front = Dict{String,Any}[]
-    if hasproperty(sol, :original) && hasproperty(sol.original, :population)
-        for ind in sol.original.population
-            params_dict = Dict(string(cal_names[j]) => ind.x[j] for j in eachindex(cal_names))
+
+    # 从 Metaheuristics 结果中提取 Pareto 前沿
+    try
+        # 获取最终种群
+        if hasproperty(mh_result, :population)
+            pop = mh_result.population
+            for ind in pop
+                params_dict = Dict(string(cal_names[j]) => ind.x[j] for j in eachindex(cal_names))
+                obj_dict = Dict{String,Float64}()
+                for (k, obj_name) in enumerate(objectives)
+                    raw = ind.f[k]
+                    obj_dict[obj_name] = Metrics.is_higher_better(obj_name) ? -raw : raw
+                end
+                push!(pareto_front, Dict("params" => params_dict, "objectives" => obj_dict))
+            end
+        elseif hasproperty(mh_result, :best_sol)
+            # 单个最优解
+            best = mh_result.best_sol
+            params_dict = Dict(string(cal_names[j]) => best.x[j] for j in eachindex(cal_names))
             obj_dict = Dict{String,Float64}()
             for (k, obj_name) in enumerate(objectives)
-                raw = ind.f[k]
+                raw = best.f[k]
                 obj_dict[obj_name] = Metrics.is_higher_better(obj_name) ? -raw : raw
             end
             push!(pareto_front, Dict("params" => params_dict, "objectives" => obj_dict))
         end
-    else
-        # Fallback: 单解
-        params_dict = Dict(string(cal_names[j]) => sol.u[j] for j in eachindex(cal_names))
-        push!(pareto_front, Dict("params" => params_dict, "objectives" => Dict{String,Float64}()))
+    catch e
+        @warn "提取 Pareto 前沿时出错: $(e)，尝试备用方法"
+        # Fallback: 使用 best_sol
+        if hasproperty(mh_result, :best_sol)
+            best = mh_result.best_sol
+            params_dict = Dict(string(cal_names[j]) => best.x[j] for j in eachindex(cal_names))
+            obj_dict = Dict{String,Float64}()
+            for (k, obj_name) in enumerate(objectives)
+                raw = best.f[k]
+                obj_dict[obj_name] = Metrics.is_higher_better(obj_name) ? -raw : raw
+            end
+            push!(pareto_front, Dict("params" => params_dict, "objectives" => obj_dict))
+        end
     end
 
     return Dict{String,Any}(

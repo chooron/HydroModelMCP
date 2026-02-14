@@ -1,0 +1,103 @@
+{
+    "model": "gr4j",
+    "calibration_metrics": {
+        "KGE": -0.46807680615543235,
+        "RMSE": 1965.0360331067604,
+        "NSE": -0.2532497454808955,
+        "R2": 0.3520575590902574,
+        "PBIAS": -99.65454236154841
+    },
+    "scenario": "humid_perennial",
+    "data_length": 12418,
+    "validation_metrics": {
+        "KGE": -0.48533681212301016,
+        "RMSE": 1749.4187135784284,
+        "NSE": -0.21357608590794785,
+        "R2": 0.2838362500803638,
+        "PBIAS": -99.57077110930177
+    },
+    "data_file": "G:\\Dataset\\camels_dataset.npz",
+    "validation_period": "1:4018",
+    "calibration_period": "1:3652",
+    "sensitivity": {
+        "fixed": [
+            "x1"
+        ],
+        "param_names": [
+            "x1",
+            "x4",
+            "x3",
+            "x2"
+        ],
+        "sensitivities": [
+            0.013156231373457967,
+            0.3667838548588112,
+            0.2404424108403462,
+            1.0
+        ],
+        "calibratable": [
+            "x4",
+            "x3",
+            "x2"
+        ]
+    },
+    "diagnostics": {
+        "summary": "校准存在问题，请参考 recommendations 进行调整。",
+        "plateau": {
+            "passed": false,
+            "best_worst_gap": 0.01566468126812004
+        },
+        "convergence": {
+            "passed": true,
+            "cv": 0.01765524759844697,
+            "objective_values": [
+                -0.4837414874235524,
+                -0.4813285446449347,
+                -0.46807680615543235
+            ],
+            "spread": 0.008434187424591575,
+            "n_trials": 3
+        },
+        "hat_trick": false,
+        "recommendations": [
+            "INCREASE_BUDGET: 目标函数仍有明显改善空间，建议增加迭代次数",
+            "UNIDENTIFIABLE: 参数 x1, x4, x2 在多次试验中变异较大，可能不可识别，建议固定或缩小范围"
+        ],
+        "boundaries": {
+            "passed": true,
+            "at_bound": [
+            ]
+        },
+        "parameter_spread": {
+            "details": {
+                "x1": {
+                    "cv": 0.6829158014381217,
+                    "std": 244.43778731821197
+                },
+                "x4": {
+                    "cv": 1.097629410977394,
+                    "std": 8.620662609236925
+                },
+                "x2": {
+                    "cv": 0.7123047613147223,
+                    "std": 1.469650606014866
+                },
+                "x3": {
+                    "cv": 0.19084793534235864,
+                    "std": 8.885284619596023
+                }
+            },
+            "unidentifiable": [
+                "x1",
+                "x4",
+                "x2"
+            ]
+        }
+    },
+    "best_parameters": {
+        "x1": 121.54870368228926,
+        "x4": 1.4488056521740802,
+        "x2": 3.7203458181542204,
+        "x3": 41.81522275770448
+    }
+}

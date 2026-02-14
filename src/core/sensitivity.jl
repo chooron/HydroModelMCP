@@ -126,7 +126,8 @@ function _run_morris(f::Function, lb::Vector{Float64}, ub::Vector{Float64}, n_sa
     method = GlobalSensitivity.Morris(num_trajectory=n_samples)
     result = GlobalSensitivity.gsa(f, method, [[lb[i], ub[i]] for i in eachindex(lb)])
     # Morris 返回 means_star (绝对均值) 作为敏感性度量
-    mu_star = result.means_star
+    # means_star 是一个矩阵，需要转换为向量
+    mu_star = vec(result.means_star)
     # 归一化到 [0, 1]
     max_val = maximum(abs.(mu_star))
     return max_val > 0 ? abs.(mu_star) ./ max_val : zeros(length(lb))
