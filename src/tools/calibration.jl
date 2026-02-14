@@ -37,6 +37,12 @@ compute_metrics_tool = MCPTool(
         "required" => ["simulation", "observation", "sim_column", "obs_column"]
     ),
     handler = function(params)
+        # 验证必需参数
+        validation_error = validate_required_params(params, ["simulation", "observation", "sim_column", "obs_column"])
+        if !isnothing(validation_error)
+            return create_error_response(validation_error)
+        end
+
         try
             # 加载模拟和观测数据
             sim_config = params["simulation"]
@@ -56,11 +62,7 @@ compute_metrics_tool = MCPTool(
 
             return TextContent(text = JSON3.write(result))
         catch e
-            err_msg = sprint(showerror, e, catch_backtrace())
-            return CallToolResult(
-                content = [TextContent(text = "Metrics Error: $(err_msg)")],
-                is_error = true
-            )
+            return create_error_response(e)
         end
     end
 )
@@ -99,6 +101,21 @@ split_data_tool = MCPTool(
         "required" => ["data_source", "obs_column"]
     ),
     handler = function(params)
+        # 验证必需参数
+        validation_error = validate_required_params(params, ["data_source", "obs_column"])
+        if !isnothing(validation_error)
+            return create_error_response(validation_error)
+        end
+
+        # 验证枚举参数
+        if haskey(params, "method")
+            enum_error = validate_enum_param(params, "method",
+                ["recent_first", "split_sample", "use_all"], "split_sample")
+            if !isnothing(enum_error)
+                return create_error_response(enum_error)
+            end
+        end
+
         try
             config = params["data_source"]
             obs_col = params["obs_column"]
@@ -123,11 +140,7 @@ split_data_tool = MCPTool(
             )
             return TextContent(text = JSON3.write(serializable))
         catch e
-            err_msg = sprint(showerror, e)
-            return CallToolResult(
-                content = [TextContent(text = "Split Error: $(err_msg)")],
-                is_error = true
-            )
+            return create_error_response(e)
         end
     end
 )
@@ -188,6 +201,21 @@ sensitivity_tool = MCPTool(
         "required" => ["model_name", "forcing", "observation", "obs_column"]
     ),
     handler = function(params)
+        # 验证必需参数
+        validation_error = validate_required_params(params, ["model_name", "forcing", "observation", "obs_column"])
+        if !isnothing(validation_error)
+            return create_error_response(validation_error)
+        end
+
+        # 验证枚举参数
+        if haskey(params, "method")
+            enum_error = validate_enum_param(params, "method",
+                ["morris", "sobol"], "morris")
+            if !isnothing(enum_error)
+                return create_error_response(enum_error)
+            end
+        end
+
         try
             forcing_config = params["forcing"]
             obs_config = params["observation"]
@@ -209,11 +237,7 @@ sensitivity_tool = MCPTool(
             )
             return TextContent(text = JSON3.write(result))
         catch e
-            err_msg = sprint(showerror, e)
-            return CallToolResult(
-                content = [TextContent(text = "Sensitivity Error: $(err_msg)")],
-                is_error = true
-            )
+            return create_error_response(e)
         end
     end
 )
@@ -248,6 +272,21 @@ sampling_tool = MCPTool(
         "required" => ["model_name"]
     ),
     handler = function(params)
+        # 验证必需参数
+        validation_error = validate_required_params(params, ["model_name"])
+        if !isnothing(validation_error)
+            return create_error_response(validation_error)
+        end
+
+        # 验证枚举参数
+        if haskey(params, "method")
+            enum_error = validate_enum_param(params, "method",
+                ["lhs", "sobol", "random"], "lhs")
+            if !isnothing(enum_error)
+                return create_error_response(enum_error)
+            end
+        end
+
         try
             model_name = params["model_name"]
             _, canonical, param_names, default_bounds = Calibration._load_model_and_bounds(model_name)
@@ -288,11 +327,7 @@ sampling_tool = MCPTool(
             )
             return TextContent(text = JSON3.write(result))
         catch e
-            err_msg = sprint(showerror, e)
-            return CallToolResult(
-                content = [TextContent(text = "Sampling Error: $(err_msg)")],
-                is_error = true
-            )
+            return create_error_response(e)
         end
     end
 )
@@ -332,6 +367,29 @@ calibrate_tool = MCPTool(
         "required" => ["model_name", "forcing", "observation", "obs_column"]
     ),
     handler = function(params)
+        # 验证必需参数
+        validation_error = validate_required_params(params, ["model_name", "forcing", "observation", "obs_column"])
+        if !isnothing(validation_error)
+            return create_error_response(validation_error)
+        end
+
+        # 验证枚举参数
+        if haskey(params, "objective")
+            enum_error = validate_enum_param(params, "objective",
+                ["KGE","NSE","LogNSE","LogKGE","PBIAS","R2","RMSE"], "KGE")
+            if !isnothing(enum_error)
+                return create_error_response(enum_error)
+            end
+        end
+
+        if haskey(params, "algorithm")
+            enum_error = validate_enum_param(params, "algorithm",
+                ["BBO","DE","PSO","CMAES","ECA"], "BBO")
+            if !isnothing(enum_error)
+                return create_error_response(enum_error)
+            end
+        end
+
         try
             forcing_config = params["forcing"]
             obs_config = params["observation"]
@@ -378,11 +436,7 @@ calibrate_tool = MCPTool(
             )
             return TextContent(text = JSON3.write(result))
         catch e
-            err_msg = sprint(showerror, e)
-            return CallToolResult(
-                content = [TextContent(text = "Calibration Error: $(err_msg)")],
-                is_error = true
-            )
+            return create_error_response(e)
         end
     end
 )
@@ -421,6 +475,21 @@ calibrate_multi_tool = MCPTool(
         "required" => ["model_name", "forcing", "observation", "obs_column", "objectives"]
     ),
     handler = function(params)
+        # 验证必需参数
+        validation_error = validate_required_params(params, ["model_name", "forcing", "observation", "obs_column", "objectives"])
+        if !isnothing(validation_error)
+            return create_error_response(validation_error)
+        end
+
+        # 验证枚举参数
+        if haskey(params, "algorithm")
+            enum_error = validate_enum_param(params, "algorithm",
+                ["NSGA2", "NSGA3"], "NSGA2")
+            if !isnothing(enum_error)
+                return create_error_response(enum_error)
+            end
+        end
+
         try
             forcing_config = params["forcing"]
             obs_config = params["observation"]
@@ -465,11 +534,7 @@ calibrate_multi_tool = MCPTool(
             )
             return TextContent(text = JSON3.write(result))
         catch e
-            err_msg = sprint(showerror, e)
-            return CallToolResult(
-                content = [TextContent(text = "Multi-Objective Error: $(err_msg)")],
-                is_error = true
-            )
+            return create_error_response(e)
         end
     end
 )
@@ -503,6 +568,12 @@ diagnose_tool = MCPTool(
         "required" => ["calibration_result"]
     ),
     handler = function(params)
+        # 验证必需参数
+        validation_error = validate_required_params(params, ["calibration_result"])
+        if !isnothing(validation_error)
+            return create_error_response(validation_error)
+        end
+
         try
             cal_result = params["calibration_result"]
             # 确保是 Dict{String,Any}
@@ -518,11 +589,7 @@ diagnose_tool = MCPTool(
             )
             return TextContent(text = JSON3.write(result))
         catch e
-            err_msg = sprint(showerror, e)
-            return CallToolResult(
-                content = [TextContent(text = "Diagnosis Error: $(err_msg)")],
-                is_error = true
-            )
+            return create_error_response(e)
         end
     end
 )
@@ -555,6 +622,19 @@ configure_objectives_tool = MCPTool(
         "required" => ["goal"]
     ),
     handler = function(params)
+        # 验证必需参数
+        validation_error = validate_required_params(params, ["goal"])
+        if !isnothing(validation_error)
+            return create_error_response(validation_error)
+        end
+
+        # 验证枚举参数
+        enum_error = validate_enum_param(params, "goal",
+            ["general_fit", "peak_flows", "low_flows", "water_balance", "dynamics", "custom"], nothing)
+        if !isnothing(enum_error)
+            return create_error_response(enum_error)
+        end
+
         try
             goal = params["goal"]
 
@@ -617,11 +697,7 @@ configure_objectives_tool = MCPTool(
             config["goal"] = goal
             return TextContent(text = JSON3.write(config))
         catch e
-            err_msg = sprint(showerror, e)
-            return CallToolResult(
-                content = [TextContent(text = "Configure Error: $(err_msg)")],
-                is_error = true
-            )
+            return create_error_response(e)
         end
     end
 )
@@ -659,6 +735,29 @@ init_calibration_setup_tool = MCPTool(
         "required" => ["model_name", "forcing", "observation", "obs_column"]
     ),
     handler = function(params)
+        # 验证必需参数
+        validation_error = validate_required_params(params, ["model_name", "forcing", "observation", "obs_column"])
+        if !isnothing(validation_error)
+            return create_error_response(validation_error)
+        end
+
+        # 验证枚举参数
+        if haskey(params, "goal")
+            enum_error = validate_enum_param(params, "goal",
+                ["general_fit", "peak_flows", "low_flows", "water_balance", "dynamics"], "general_fit")
+            if !isnothing(enum_error)
+                return create_error_response(enum_error)
+            end
+        end
+
+        if haskey(params, "budget")
+            enum_error = validate_enum_param(params, "budget",
+                ["low", "medium", "high"], "medium")
+            if !isnothing(enum_error)
+                return create_error_response(enum_error)
+            end
+        end
+
         try
             forcing_config = params["forcing"]
             obs_config = params["observation"]
@@ -751,11 +850,7 @@ init_calibration_setup_tool = MCPTool(
 
             return TextContent(text = JSON3.write(setup))
         catch e
-            err_msg = sprint(showerror, e)
-            return CallToolResult(
-                content = [TextContent(text = "Setup Error: $(err_msg)")],
-                is_error = true
-            )
+            return create_error_response(e)
         end
     end
 )

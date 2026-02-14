@@ -1,0 +1,41 @@
+{
+    "train_period": "366 - 1023",
+    "data_length": 1461,
+    "model": "exphydro",
+    "train_objective": 0.2800112782736124,
+    "test_metrics": {
+        "KGE": -1.0915112958598638,
+        "_magnitude_ratio": 101.19047628206285,
+        "RMSE": 9.25204676475784,
+        "_log_transform_recommended": true,
+        "NSE": -5.609394838669138,
+        "R2": 0.2741321135772254,
+        "PBIAS": 65.37212191709735
+    },
+    "data_file": "e:\\JlCode\\HydroModelMCP\\examples\\exphydro_demo\\../../data/03604000.csv",
+    "initial_metrics": {
+        "KGE": -7.640915540854111,
+        "_magnitude_ratio": 443.27485307153404,
+        "RMSE": 19.956122444152395,
+        "_log_transform_recommended": true,
+        "NSE": -11.160340239936346
+    },
+    "test_period": "1024 - 1461",
+    "full_metrics": {
+        "KGE": -0.0919696682625295,
+        "_magnitude_ratio": 443.27485307153404,
+        "RMSE": 9.355927442662804,
+        "_log_transform_recommended": true,
+        "NSE": -1.67280390235141,
+        "R2": 0.2495943989136203,
+        "PBIAS": 41.603779928962794
+    },
+    "best_parameters": {
+        "f": 0.48441646113571646,
+        "Qmax": -2.9557703560848188,
+        "Df": 1297.7868632135032,
+        "Tmin": 0.08917951726577147,
+        "Smax": 2.2806256660656903,
+        "Tmax": 36.94549577964841
+    }
+}

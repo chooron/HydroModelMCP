@@ -11,16 +11,13 @@ list_models_tool = MCPTool(
     handler = function(params)
         try
             models = Discovery.list_models()
-            
+
             # 修改点：显式序列化为 JSON 字符串并封装在 TextContent 中
             return TextContent(
                 text = JSON3.write(models)
             )
         catch e
-            return CallToolResult(
-                content = [TextContent(text = "Error listing models: $e")],
-                is_error = true
-            )
+            return create_error_response(e)
         end
     end
 )
@@ -40,12 +37,18 @@ find_model_tool = MCPTool(
         )
     ],
     handler = function(params)
+        # 验证必需参数
+        validation_error = validate_required_params(params, ["name"])
+        if !isnothing(validation_error)
+            return create_error_response(validation_error)
+        end
+
         name_query = params["name"]
         try
             canonical_name = Discovery.find_model(name_query)
-            
+
             result_dict = Dict{String, Any}()
-            
+
             if isnothing(canonical_name)
                 result_dict["found"] = false
                 result_dict["message"] = "Model '$name_query' not found in library."
@@ -56,17 +59,14 @@ find_model_tool = MCPTool(
                 result_dict["query"] = name_query
                 result_dict["message"] = "Model found."
             end
-            
+
             # 修改点：返回 JSON 字符串
             return TextContent(
                 text = JSON3.write(result_dict)
             )
 
         catch e
-            return CallToolResult(
-                content = [TextContent(text = "Error finding model: $e")],
-                is_error = true
-            )
+            return create_error_response(e)
         end
     end
 )
@@ -86,6 +86,12 @@ get_model_info_tool = MCPTool(
         )
     ],
     handler = function(params)
+        # 验证必需参数
+        validation_error = validate_required_params(params, ["model_name"])
+        if !isnothing(validation_error)
+            return create_error_response(validation_error)
+        end
+
         name = params["model_name"]
         try
             info = Discovery.get_model_info(name)
@@ -94,10 +100,7 @@ get_model_info_tool = MCPTool(
                 text = JSON3.write(info)
             )
         catch e
-            return CallToolResult(
-                content = [TextContent(text = "Error fetching model info: $e")],
-                is_error = true
-            )
+            return create_error_response(e)
         end
     end
 )
@@ -117,6 +120,12 @@ get_model_variables_tool = MCPTool(
         )
     ],
     handler = function(params)
+        # 验证必需参数
+        validation_error = validate_required_params(params, ["model_name"])
+        if !isnothing(validation_error)
+            return create_error_response(validation_error)
+        end
+
         name = params["model_name"]
         try
             data = Discovery.get_variables_detail(name)
@@ -124,10 +133,7 @@ get_model_variables_tool = MCPTool(
                 text = JSON3.write(data)
             )
         catch e
-            return CallToolResult(
-                content = [TextContent(text = "Error fetching variables: $e")],
-                is_error = true
-            )
+            return create_error_response(e)
         end
     end
 )
@@ -147,6 +153,12 @@ get_model_parameters_tool = MCPTool(
         )
     ],
     handler = function(params)
+        # 验证必需参数
+        validation_error = validate_required_params(params, ["model_name"])
+        if !isnothing(validation_error)
+            return create_error_response(validation_error)
+        end
+
         name = params["model_name"]
         try
             data = Discovery.get_parameters_detail(name)
@@ -154,10 +166,7 @@ get_model_parameters_tool = MCPTool(
                 text = JSON3.write(data)
             )
         catch e
-            return CallToolResult(
-                content = [TextContent(text = "Error fetching parameters: $e")],
-                is_error = true
-            )
+            return create_error_response(e)
         end
     end
 )

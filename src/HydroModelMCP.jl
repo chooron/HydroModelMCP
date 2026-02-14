@@ -30,6 +30,8 @@ include("core/discovery.jl")
 include("core/sensitivity.jl")
 include("core/calibration.jl")
 include("core/storage.jl")
+include("core/ensemble.jl")
+include("core/validation.jl")
 
 # MCP 资源定义
 include("resources/models.jl")
@@ -37,10 +39,15 @@ include("resources/calibration.jl")
 include("resources/parameters.jl")
 include("resources/templates.jl")
 
+# MCP 工具辅助函数
+include("tools/helpers.jl")
+
 # MCP 工具封装
 include("tools/simulation.jl")
 include("tools/discovery.jl")
 include("tools/calibration.jl")
+include("tools/ensemble.jl")
+include("tools/validation.jl")
 include("prompts/experts.jl")
 
 # 初始化存储后端 (可通过环境变量配置)
@@ -79,6 +86,8 @@ ALL_TOOLS = [
     get_model_parameters_tool,
     # 模拟
     simulation_tool,
+    ensemble_tool(),
+    validation_tool(),
     # 校准工作流
     compute_metrics_tool,
     split_data_tool,
@@ -101,8 +110,7 @@ function run_server()
         name="HydroModel-Agent-Interface",
         version="0.1.0",
         tools=ALL_TOOLS,
-        resources=ALL_RESOURCES,
-        resource_templates=ALL_RESOURCE_TEMPLATES
+        resources=ALL_RESOURCES
         # prompts=ALL_PROMPTS
     )
     start!(server)
@@ -123,8 +131,7 @@ function run_http_server()
         name = "Hydro-Web-Service",
         version = "0.1.0",
         tools = ALL_TOOLS,
-        resources = ALL_RESOURCES,
-        resource_templates = ALL_RESOURCE_TEMPLATES
+        resources = ALL_RESOURCES
     )
 
     # 3. 绑定并启动

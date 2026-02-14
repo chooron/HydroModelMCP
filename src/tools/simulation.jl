@@ -95,6 +95,29 @@ simulation_tool = MCPTool(
 
     # Handler 函数 (修改点在这里)
     handler=function (params)
+        # 验证必需参数
+        validation_error = validate_required_params(params, ["model_name", "forcing"])
+        if !isnothing(validation_error)
+            return create_error_response(validation_error)
+        end
+
+        # 验证枚举参数
+        if haskey(params, "solver")
+            enum_error = validate_enum_param(params, "solver",
+                ["ODE", "DISCRETE", "MUTABLE", "IMMUTABLE"], "ODE")
+            if !isnothing(enum_error)
+                return create_error_response(enum_error)
+            end
+        end
+
+        if haskey(params, "interpolator")
+            enum_error = validate_enum_param(params, "interpolator",
+                ["LINEAR", "CONSTANT"], "LINEAR")
+            if !isnothing(enum_error)
+                return create_error_response(enum_error)
+            end
+        end
+
         try
             # 1. 调用业务逻辑，获取结果 (这是一个 Dict)
             result = Simulation.run_simulation(params)
@@ -109,13 +132,8 @@ simulation_tool = MCPTool(
             # 捕获错误并返回标准错误格式
             err_msg = sprint(showerror, e)
             # 为了调试方便，可以缩短堆栈信息，或者只保留错误信息
-            
-            return CallToolResult(
-                content=[
-                    Dict("type" => "text", "text" => "Simulation Failed: $err_msg")
-                ],
-                is_error=true
-            )
+
+            return create_error_response("Simulation Failed: $err_msg")
         end
     end
 )
