@@ -22,10 +22,11 @@ This interface allows AI agents to autonomously discover model structures, query
   - **Auto-Configuration**: Handles parameter injection (or random generation if missing) and state initialization.
   - **Flexible Solvers**: Supports various ODE solvers and interpolation methods via Enums.
 
-* **`run_ensemble`**: Batch simulation with multiple parameter sets.
+* **`run_ensemble_parameters`**: Batch simulation with multiple parameter sets for a single model.
+  - **Parameter Uncertainty Analysis**: Runs the same model with different parameter combinations.
   - **Parallel Execution**: Leverages multi-threading for performance.
   - **Ensemble Statistics**: Computes mean and standard deviation across ensemble members.
-  - **Uncertainty Analysis**: Ideal for parameter uncertainty quantification.
+  - **Monte Carlo Simulation**: Ideal for parameter uncertainty quantification and sensitivity visualization.
   - **Result Storage**: Automatically saves ensemble results with unique IDs.
 
 * **`run_validation`**: Split-period validation for model evaluation.

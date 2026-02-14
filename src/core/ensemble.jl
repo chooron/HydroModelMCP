@@ -9,6 +9,8 @@ using ..Simulation
 using Statistics
 using UUIDs
 using Base.Threads
+using CSV
+using DataFrames
 
 """
     run_ensemble(args::AbstractDict) -> Dict
@@ -62,10 +64,21 @@ function run_ensemble(args::AbstractDict)
 
             result = Simulation.run_simulation(sim_args)
 
+            # 提取模拟结果（处理不同的输出格式）
+            simulated_flow = if haskey(result, "result")
+                result["result"]
+            elseif haskey(result, "path")
+                # CSV 输出，需要读取文件
+                df = CSV.read(result["path"], DataFrame)
+                df[!, 1]  # 假设第一列是结果
+            else
+                throw(ArgumentError("无法从模拟结果中提取流量数据"))
+            end
+
             ensemble_results[i] = Dict(
                 "member_id" => i - 1,  # 0-based索引
                 "parameters" => parameter_sets[i],
-                "simulated_flow" => result["result"]
+                "simulated_flow" => simulated_flow
             )
         end
     else
@@ -76,10 +89,21 @@ function run_ensemble(args::AbstractDict)
 
             result = Simulation.run_simulation(sim_args)
 
+            # 提取模拟结果（处理不同的输出格式）
+            simulated_flow = if haskey(result, "result")
+                result["result"]
+            elseif haskey(result, "path")
+                # CSV 输出，需要读取文件
+                df = CSV.read(result["path"], DataFrame)
+                df[!, 1]  # 假设第一列是结果
+            else
+                throw(ArgumentError("无法从模拟结果中提取流量数据"))
+            end
+
             ensemble_results[i] = Dict(
                 "member_id" => i - 1,
                 "parameters" => parameter_sets[i],
-                "simulated_flow" => result["result"]
+                "simulated_flow" => simulated_flow
             )
         end
     end

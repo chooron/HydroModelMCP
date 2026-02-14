@@ -31,6 +31,10 @@ include("../src/HydroModelMCP.jl")
         include("test_calibration.jl")
     end
 
+    @testset "test ensemble simulation" begin
+        include("test_ensemble.jl")
+    end
+
     # @testset "test model simulation" begin
     #     include("test_simulation.jl")
     # end

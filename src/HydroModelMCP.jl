@@ -21,6 +21,9 @@ using OptimizationMetaheuristics
 using GlobalSensitivity
 
 # Core 模块 (顺序重要：被依赖的在前)
+include("schemas/Schemas.jl")
+using .Schemas
+
 include("core/dataloader.jl")
 include("core/metrics.jl")
 include("core/datasplitter.jl")
@@ -86,8 +89,8 @@ ALL_TOOLS = [
     get_model_parameters_tool,
     # 模拟
     simulation_tool,
-    ensemble_tool(),
-    validation_tool(),
+    ensemble_parameter_tool,
+    validation_tool,
     # 校准工作流
     compute_metrics_tool,
     split_data_tool,

@@ -5,6 +5,7 @@ using ..HydroModels
 using ..HydroModelLibrary
 using ..ComponentArrays
 using ..DataInterpolations
+using ..DataInterpolations: LinearInterpolation, ConstantInterpolation
 using ..Statistics
 
 # ==============================================================================

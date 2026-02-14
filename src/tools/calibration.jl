@@ -1,5 +1,6 @@
 using ModelContextProtocol
 using JSON3
+using .Schemas
 import UUIDs
 import Dates
 
@@ -12,27 +13,11 @@ compute_metrics_tool = MCPTool(
     input_schema = Dict{String,Any}(
         "type" => "object",
         "properties" => Dict{String,Any}(
-            "simulation" => Dict{String,Any}(
-                "type" => "object",
-                "description" => "模拟数据源配置 (source_type + path/data，格式同 forcing)"
-            ),
-            "observation" => Dict{String,Any}(
-                "type" => "object",
-                "description" => "观测数据源配置 (source_type + path/data)"
-            ),
-            "sim_column" => Dict{String,Any}(
-                "type" => "string",
-                "description" => "模拟数据中的列名/键名"
-            ),
-            "obs_column" => Dict{String,Any}(
-                "type" => "string",
-                "description" => "观测数据中的列名/键名"
-            ),
-            "metrics" => Dict{String,Any}(
-                "type" => "array",
-                "items" => Dict{String,Any}("type" => "string"),
-                "description" => "要计算的指标列表，如 [\"KGE\",\"NSE\"]。默认计算全部。"
-            )
+            "simulation" => DATA_SOURCE_SCHEMA,
+            "observation" => OBSERVATION_SCHEMA,
+            "sim_column" => SIM_COLUMN_SCHEMA,
+            "obs_column" => OBS_COLUMN_SCHEMA,
+            "metrics" => METRICS_SCHEMA
         ),
         "required" => ["simulation", "observation", "sim_column", "obs_column"]
     ),
@@ -76,27 +61,11 @@ split_data_tool = MCPTool(
     input_schema = Dict{String,Any}(
         "type" => "object",
         "properties" => Dict{String,Any}(
-            "data_source" => Dict{String,Any}(
-                "type" => "object",
-                "description" => "数据源配置 (source_type + path/data)"
-            ),
-            "obs_column" => Dict{String,Any}(
-                "type" => "string",
-                "description" => "观测值列名"
-            ),
-            "method" => Dict{String,Any}(
-                "type" => "string",
-                "enum" => ["recent_first", "split_sample", "use_all"],
-                "description" => "划分方法。默认 split_sample"
-            ),
-            "ratio" => Dict{String,Any}(
-                "type" => "number",
-                "description" => "校准集占比 (0-1)，默认 0.7"
-            ),
-            "warmup" => Dict{String,Any}(
-                "type" => "integer",
-                "description" => "预热期天数，默认 365"
-            )
+            "data_source" => DATA_SOURCE_SCHEMA,
+            "obs_column" => OBS_COLUMN_SCHEMA,
+            "method" => SPLIT_METHOD_SCHEMA,
+            "ratio" => RATIO_SCHEMA,
+            "warmup" => WARMUP_SCHEMA
         ),
         "required" => ["data_source", "obs_column"]
     ),
@@ -154,49 +123,16 @@ sensitivity_tool = MCPTool(
     input_schema = Dict{String,Any}(
         "type" => "object",
         "properties" => Dict{String,Any}(
-            "model_name" => Dict{String,Any}(
-                "type" => "string",
-                "description" => "模型名称"
-            ),
-            "forcing" => Dict{String,Any}(
-                "type" => "object",
-                "description" => "驱动数据配置"
-            ),
-            "observation" => Dict{String,Any}(
-                "type" => "object",
-                "description" => "观测数据配置"
-            ),
-            "obs_column" => Dict{String,Any}(
-                "type" => "string",
-                "description" => "观测值列名"
-            ),
-            "method" => Dict{String,Any}(
-                "type" => "string",
-                "enum" => ["morris", "sobol"],
-                "description" => "敏感性分析方法。默认 morris"
-            ),
-            "n_samples" => Dict{String,Any}(
-                "type" => "integer",
-                "description" => "采样数。Morris 默认 100，Sobol 默认 1000"
-            ),
-            "objective" => Dict{String,Any}(
-                "type" => "string",
-                "description" => "评价指标。默认 NSE"
-            ),
-            "threshold" => Dict{String,Any}(
-                "type" => "number",
-                "description" => "敏感性阈值，低于此值的参数建议固定。默认 0.1"
-            ),
-            "solver" => Dict{String,Any}(
-                "type" => "string",
-                "enum" => ["ODE", "DISCRETE"],
-                "description" => "求解器类型"
-            ),
-            "interpolator" => Dict{String,Any}(
-                "type" => "string",
-                "enum" => ["LINEAR", "CONSTANT"],
-                "description" => "插值方式"
-            )
+            "model_name" => MODEL_NAME_SCHEMA,
+            "forcing" => FORCING_SCHEMA,
+            "observation" => OBSERVATION_SCHEMA,
+            "obs_column" => OBS_COLUMN_SCHEMA,
+            "method" => SENSITIVITY_METHOD_SCHEMA,
+            "n_samples" => N_SAMPLES_SCHEMA,
+            "objective" => OBJECTIVE_SCHEMA,
+            "threshold" => THRESHOLD_SCHEMA,
+            "solver" => SOLVER_SIMPLE_SCHEMA,
+            "interpolator" => INTERPOLATOR_SIMPLE_SCHEMA
         ),
         "required" => ["model_name", "forcing", "observation", "obs_column"]
     ),
@@ -251,23 +187,10 @@ sampling_tool = MCPTool(
     input_schema = Dict{String,Any}(
         "type" => "object",
         "properties" => Dict{String,Any}(
-            "model_name" => Dict{String,Any}(
-                "type" => "string",
-                "description" => "模型名称（自动获取参数范围）"
-            ),
-            "n_samples" => Dict{String,Any}(
-                "type" => "integer",
-                "description" => "采样数量，默认 100"
-            ),
-            "method" => Dict{String,Any}(
-                "type" => "string",
-                "enum" => ["lhs", "sobol", "random"],
-                "description" => "采样方法，默认 lhs"
-            ),
-            "param_bounds" => Dict{String,Any}(
-                "type" => "object",
-                "description" => "自定义参数范围覆盖 (参数名 -> [min, max])"
-            )
+            "model_name" => MODEL_NAME_SCHEMA,
+            "n_samples" => SAMPLING_N_SAMPLES_SCHEMA,
+            "method" => SAMPLING_METHOD_SCHEMA,
+            "param_bounds" => PARAM_BOUNDS_SCHEMA
         ),
         "required" => ["model_name"]
     ),
@@ -341,28 +264,20 @@ calibrate_tool = MCPTool(
     input_schema = Dict{String,Any}(
         "type" => "object",
         "properties" => Dict{String,Any}(
-            "model_name" => Dict{String,Any}("type" => "string", "description" => "模型名称"),
-            "forcing" => Dict{String,Any}("type" => "object", "description" => "驱动数据配置"),
-            "observation" => Dict{String,Any}("type" => "object", "description" => "观测数据配置"),
-            "obs_column" => Dict{String,Any}("type" => "string", "description" => "观测值列名"),
-            "objective" => Dict{String,Any}(
-                "type" => "string",
-                "enum" => ["KGE","NSE","LogNSE","LogKGE","PBIAS","R2","RMSE"],
-                "description" => "目标函数。默认 KGE"
-            ),
-            "algorithm" => Dict{String,Any}(
-                "type" => "string",
-                "enum" => ["BBO","DE","PSO","CMAES","ECA"],
-                "description" => "优化算法。默认 BBO"
-            ),
-            "maxiters" => Dict{String,Any}("type" => "integer", "description" => "最大迭代次数。默认 1000"),
-            "n_trials" => Dict{String,Any}("type" => "integer", "description" => "独立试验次数(用于收敛性检查)。默认 1"),
-            "log_transform" => Dict{String,Any}("type" => "boolean", "description" => "是否对数据做对数变换。默认 false"),
-            "fixed_params" => Dict{String,Any}("type" => "object", "description" => "固定参数 (参数名 -> 值)，不参与优化"),
-            "param_bounds" => Dict{String,Any}("type" => "object", "description" => "自定义参数范围 (参数名 -> [min, max])"),
-            "solver" => Dict{String,Any}("type" => "string", "enum" => ["ODE","DISCRETE","MUTABLE","IMMUTABLE"]),
-            "interpolator" => Dict{String,Any}("type" => "string", "enum" => ["LINEAR","CONSTANT"]),
-            "init_states" => Dict{String,Any}("type" => "object", "description" => "自定义初始状态")
+            "model_name" => MODEL_NAME_SCHEMA,
+            "forcing" => FORCING_SCHEMA,
+            "observation" => OBSERVATION_SCHEMA,
+            "obs_column" => OBS_COLUMN_SCHEMA,
+            "objective" => OBJECTIVE_SCHEMA,
+            "algorithm" => ALGORITHM_SCHEMA,
+            "maxiters" => MAXITERS_SCHEMA,
+            "n_trials" => N_TRIALS_SCHEMA,
+            "log_transform" => LOG_TRANSFORM_SCHEMA,
+            "fixed_params" => FIXED_PARAMS_SCHEMA,
+            "param_bounds" => PARAM_BOUNDS_SCHEMA,
+            "solver" => SOLVER_SCHEMA,
+            "interpolator" => INTERPOLATOR_SCHEMA,
+            "init_states" => INIT_STATES_SCHEMA
         ),
         "required" => ["model_name", "forcing", "observation", "obs_column"]
     ),
@@ -450,27 +365,19 @@ calibrate_multi_tool = MCPTool(
     input_schema = Dict{String,Any}(
         "type" => "object",
         "properties" => Dict{String,Any}(
-            "model_name" => Dict{String,Any}("type" => "string", "description" => "模型名称"),
-            "forcing" => Dict{String,Any}("type" => "object", "description" => "驱动数据配置"),
-            "observation" => Dict{String,Any}("type" => "object", "description" => "观测数据配置"),
-            "obs_column" => Dict{String,Any}("type" => "string", "description" => "观测值列名"),
-            "objectives" => Dict{String,Any}(
-                "type" => "array",
-                "items" => Dict{String,Any}("type" => "string"),
-                "description" => "目标函数列表，如 [\"KGE\", \"LogKGE\"]"
-            ),
-            "algorithm" => Dict{String,Any}(
-                "type" => "string",
-                "enum" => ["NSGA2", "NSGA3"],
-                "description" => "多目标算法。默认 NSGA2"
-            ),
-            "maxiters" => Dict{String,Any}("type" => "integer", "description" => "最大迭代次数。默认 1000"),
-            "population_size" => Dict{String,Any}("type" => "integer", "description" => "种群大小。默认 50"),
-            "fixed_params" => Dict{String,Any}("type" => "object", "description" => "固定参数"),
-            "param_bounds" => Dict{String,Any}("type" => "object", "description" => "自定义参数范围"),
-            "solver" => Dict{String,Any}("type" => "string", "enum" => ["ODE","DISCRETE","MUTABLE","IMMUTABLE"]),
-            "interpolator" => Dict{String,Any}("type" => "string", "enum" => ["LINEAR","CONSTANT"]),
-            "init_states" => Dict{String,Any}("type" => "object", "description" => "自定义初始状态")
+            "model_name" => MODEL_NAME_SCHEMA,
+            "forcing" => FORCING_SCHEMA,
+            "observation" => OBSERVATION_SCHEMA,
+            "obs_column" => OBS_COLUMN_SCHEMA,
+            "objectives" => OBJECTIVES_SCHEMA,
+            "algorithm" => MULTI_ALGORITHM_SCHEMA,
+            "maxiters" => MAXITERS_SCHEMA,
+            "population_size" => POPULATION_SIZE_SCHEMA,
+            "fixed_params" => FIXED_PARAMS_SCHEMA,
+            "param_bounds" => PARAM_BOUNDS_SCHEMA,
+            "solver" => SOLVER_SCHEMA,
+            "interpolator" => INTERPOLATOR_SCHEMA,
+            "init_states" => INIT_STATES_SCHEMA
         ),
         "required" => ["model_name", "forcing", "observation", "obs_column", "objectives"]
     ),
@@ -548,22 +455,10 @@ diagnose_tool = MCPTool(
     input_schema = Dict{String,Any}(
         "type" => "object",
         "properties" => Dict{String,Any}(
-            "calibration_result" => Dict{String,Any}(
-                "type" => "object",
-                "description" => "calibrate_model 工具的返回结果（直接传入）"
-            ),
-            "boundary_tolerance" => Dict{String,Any}(
-                "type" => "number",
-                "description" => "边界容差比例。默认 0.01"
-            ),
-            "convergence_threshold" => Dict{String,Any}(
-                "type" => "number",
-                "description" => "收敛判定阈值(多次试验结果的变异系数)。默认 0.05"
-            ),
-            "plateau_window" => Dict{String,Any}(
-                "type" => "integer",
-                "description" => "平台期检测窗口大小。默认 50"
-            )
+            "calibration_result" => CALIBRATION_RESULT_SCHEMA,
+            "boundary_tolerance" => BOUNDARY_TOLERANCE_SCHEMA,
+            "convergence_threshold" => CONVERGENCE_THRESHOLD_SCHEMA,
+            "plateau_window" => PLATEAU_WINDOW_SCHEMA
         ),
         "required" => ["calibration_result"]
     ),
@@ -608,11 +503,7 @@ configure_objectives_tool = MCPTool(
                 "enum" => ["general_fit", "peak_flows", "low_flows", "water_balance", "dynamics", "custom"],
                 "description" => "业务目标: general_fit(综合拟合), peak_flows(洪峰), low_flows(枯水), water_balance(水量平衡), dynamics(动态过程), custom(自定义)"
             ),
-            "custom_metrics" => Dict{String,Any}(
-                "type" => "array",
-                "items" => Dict{String,Any}("type" => "string"),
-                "description" => "自定义指标列表 (仅 goal=custom 时使用)"
-            ),
+            "custom_metrics" => METRICS_SCHEMA,
             "custom_weights" => Dict{String,Any}(
                 "type" => "array",
                 "items" => Dict{String,Any}("type" => "number"),
@@ -711,26 +602,15 @@ init_calibration_setup_tool = MCPTool(
     input_schema = Dict{String,Any}(
         "type" => "object",
         "properties" => Dict{String,Any}(
-            "model_name" => Dict{String,Any}("type" => "string", "description" => "模型名称"),
-            "forcing" => Dict{String,Any}("type" => "object", "description" => "驱动数据配置"),
-            "observation" => Dict{String,Any}("type" => "object", "description" => "观测数据配置"),
-            "obs_column" => Dict{String,Any}("type" => "string", "description" => "观测值列名"),
-            "goal" => Dict{String,Any}(
-                "type" => "string",
-                "enum" => ["general_fit", "peak_flows", "low_flows", "water_balance", "dynamics"],
-                "description" => "业务目标。默认 general_fit"
-            ),
-            "budget" => Dict{String,Any}(
-                "type" => "string",
-                "enum" => ["low", "medium", "high"],
-                "description" => "计算预算。low(<500次), medium(500-5000次), high(>5000次)。默认 medium"
-            ),
-            "sensitivity_samples" => Dict{String,Any}(
-                "type" => "integer",
-                "description" => "敏感性分析采样数。默认 50"
-            ),
-            "solver" => Dict{String,Any}("type" => "string", "enum" => ["ODE", "DISCRETE"]),
-            "interpolator" => Dict{String,Any}("type" => "string", "enum" => ["LINEAR", "CONSTANT"])
+            "model_name" => MODEL_NAME_SCHEMA,
+            "forcing" => FORCING_SCHEMA,
+            "observation" => OBSERVATION_SCHEMA,
+            "obs_column" => OBS_COLUMN_SCHEMA,
+            "goal" => GOAL_SCHEMA,
+            "budget" => BUDGET_SCHEMA,
+            "sensitivity_samples" => SENSITIVITY_SAMPLES_SCHEMA,
+            "solver" => SOLVER_SIMPLE_SCHEMA,
+            "interpolator" => INTERPOLATOR_SIMPLE_SCHEMA
         ),
         "required" => ["model_name", "forcing", "observation", "obs_column"]
     ),
