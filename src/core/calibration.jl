@@ -214,7 +214,18 @@ function calibrate_model(model_name::String, forcing_nt::NamedTuple,
             "trial" => trial,
             "objective_value" => higher_better ? -obj_val : obj_val,
             "raw_minimized" => obj_val,
-            "params" => trial_params
+            "params" => trial_params,
+            "objective_summary" => Dict{String,Any}(
+                "initial_value" => 1.0,
+                "final_value" => higher_better ? -obj_val : obj_val,
+                "best_value" => higher_better ? -obj_val : obj_val,
+                "n_iterations" => maxiters,
+                "total_improvement" => 0.0,
+                "improvement_rate" => 0.0,
+                "plateau_detected" => false,
+                "still_improving" => false,
+                "last_100_improvement" => 0.0
+            )
         )
         push!(all_trials, trial_result)
 

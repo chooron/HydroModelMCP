@@ -24,6 +24,7 @@ using GlobalSensitivity
 include("schemas/Schemas.jl")
 using .Schemas
 
+include("data_handles.jl")
 include("core/dataloader.jl")
 include("core/metrics.jl")
 include("core/datasplitter.jl")
@@ -46,6 +47,7 @@ include("resources/templates.jl")
 include("tools/helpers.jl")
 
 # MCP 工具封装
+include("tools/data_loading.jl")
 include("tools/simulation.jl")
 include("tools/discovery.jl")
 include("tools/calibration.jl")
@@ -81,6 +83,9 @@ ALL_RESOURCES = [
 ]
 
 ALL_TOOLS = [
+    # 数据加载
+    load_camels_data_tool,
+    analyze_distribution_from_handle_tool,
     # 模型发现
     list_models_tool,
     find_model_tool,
@@ -108,7 +113,7 @@ ALL_PROMPTS = [
 ]
 
 function run_server()
-    # 创建并运行 MCP 服务
+    # 创建并运行 MCP 服务 (使用 stdio 传输)
     server = mcp_server(
         name="HydroModel-Agent-Interface",
         version="0.1.0",
@@ -116,32 +121,51 @@ function run_server()
         resources=ALL_RESOURCES
         # prompts=ALL_PROMPTS
     )
+    # 设置 stdio 传输层
+    server.transport = ModelContextProtocol.StdioTransport()
     start!(server)
+    println("🌊 HydroModelMCP 服务已启动 (stdio 传输)")
 end
 
 using ModelContextProtocol: HttpTransport
 
-function run_http_server()
-    # 1. 定义传输层 (监听 3000 端口)
+function run_http_server(;
+    host::String = get(ENV, "MCP_HOST", "127.0.0.1"),
+    port::Int = parse(Int, get(ENV, "MCP_PORT", "3000")),
+    allowed_origins::Vector{String} = String[]
+)
+    # 1. 定义传输层 (监听指定端口)
     transport = HttpTransport(
-        host = "0.0.0.0", # 允许局域网访问，不仅是 localhost
-        port = 3000,
-        enable_sse = true # 开启流式推送
+        host = host,
+        port = port,
+        endpoint = "/",
+        protocol_version = "2025-06-18",  # MCP 协议版本
+        session_required = false,  # 开发环境可设为 false，生产环境建议 true
+        allowed_origins = isempty(allowed_origins) ? ["*"] : allowed_origins  # CORS 配置
     )
 
-    # 2. 创建服务 (加载你所有的 Tools)
+    # 2. 创建服务 (加载所有 Tools 和 Resources)
     server = mcp_server(
-        name = "Hydro-Web-Service",
+        name = "HydroModel-Agent-Interface",
         version = "0.1.0",
         tools = ALL_TOOLS,
         resources = ALL_RESOURCES
     )
 
     # 3. 绑定并启动
-    # 注意：这会阻塞当前进程，就像 Web Server 一样
     server.transport = transport
     ModelContextProtocol.connect(transport)
-    println("🌊 水文模型服务已启动: http://127.0.0.1:3000")
+
+    println("🌊 HydroModelMCP HTTP 服务已启动")
+    println("   地址: http://$host:$port")
+    println("   协议版本: 2025-06-18")
+    println("   工具数量: $(length(ALL_TOOLS))")
+    println("   资源数量: $(length(ALL_RESOURCES))")
+    println("\n📝 Python 客户端连接示例:")
+    println("   from mcp import ClientSession, StdioServerParameters")
+    println("   from mcp.client.stdio import stdio_client")
+    println("   # 或使用 HTTP client 连接到 http://$host:$port")
+
     start!(server)
 end
 

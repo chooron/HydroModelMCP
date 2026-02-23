@@ -1,0 +1,76 @@
+{
+    "scenario": "snow_dominated",
+    "recommendations": [
+    ],
+    "representative_solutions": {
+        "best_lognse": {
+            "objectives": {
+                "LogNSE": -3.07589141117505,
+                "NSE": 0.009237463406356006
+            },
+            "validation_metrics": {
+                "KGE": 0.47684308913826245,
+                "LogNSE": -2.8757861688734656,
+                "RMSE": 2.234456034873562,
+                "NSE": -0.1945372154139482,
+                "LogKGE": -1.935232839858453,
+                "PBIAS": 8.784990723794843
+            }
+        },
+        "balanced": {
+            "objectives": {
+                "LogNSE": -3.0801714763018495,
+                "NSE": 0.04458689123501336
+            },
+            "validation_metrics": {
+                "KGE": 0.4938449824888831,
+                "LogNSE": -2.9456099303687933,
+                "RMSE": 2.1880642974793676,
+                "NSE": -0.14545021068794317,
+                "LogKGE": -2.0053033279769577,
+                "PBIAS": 6.777378166049608
+            }
+        },
+        "best_nse": {
+            "objectives": {
+                "LogNSE": -3.776807993508964,
+                "NSE": 0.23600574340257896
+            },
+            "validation_metrics": {
+                "KGE": 0.43249832788117404,
+                "LogNSE": -4.147541319981357,
+                "RMSE": 1.9105561366600108,
+                "NSE": 0.12667546279788555,
+                "LogKGE": -0.7820399960959299,
+                "PBIAS": 0.9114979340791098
+            }
+        }
+    },
+    "model": "cemaneigegr4j",
+    "objectives": [
+        "NSE",
+        "LogNSE"
+    ],
+    "data_file": "G:\\Dataset\\camels_dataset.npz",
+    "objective_ranges": {
+        "LogNSE": {
+            "max": -3.07589141117505,
+            "min": -3.776807993508964,
+            "range": 0.7009165823339139
+        },
+        "NSE": {
+            "max": 0.23600574340257896,
+            "min": 0.009237463406356006,
+            "range": 0.22676827999622295
+        }
+    },
+    "degeneracy": {
+        "status": "normal",
+        "message": "Pareto 前沿形态正常",
+        "relative_ranges": {
+            "LogNSE": 0.2109767540271683,
+            "NSE": 1.4074875835072316
+        }
+    },
+    "n_solutions": 50
+}

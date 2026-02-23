@@ -17,9 +17,9 @@ using NPZ
 using Dates
 using Statistics
 
-println("=" ^ 80)
+println("="^80)
 println("Example 1: Standard Automation Baseline (Humid, Perennial Catchment)")
-println("=" ^ 80)
+println("="^80)
 println()
 println("This example demonstrates:")
 println("  - Strategy 1: Global sensitivity analysis (Morris method)")
@@ -108,14 +108,13 @@ println("  Catchment area: $(round(area, digits=2)) km²")
 # Convert streamflow from ft³/s to mm/day
 # Formula: flow_mm_day = (10^3) * flow_ft3_s * 0.0283168 * 3600 * 24 / (area * 10^6)
 # Simplifies to: flow_mm_day = flow_ft3_s * 2446.5792 / area
-conversion_factor = 2446.5792 / area
-target_data_mm = target_data .* conversion_factor
+target_data_mm = target_data * (10^3) * 0.0283168 * 3600 * 24 / (area * (10^6))
 
 # Create forcing NamedTuple
 forcing_nt = (
-    P = forcing_data[:, 1],      # Precipitation (mm/day)
-    T = forcing_data[:, 2],      # Temperature (°C)
-    Ep = forcing_data[:, 3]      # Potential evaporation (mm/day)
+    P=forcing_data[:, 1],      # Precipitation (mm/day)
+    T=forcing_data[:, 2],      # Temperature (°C)
+    Ep=forcing_data[:, 3]      # Potential evaporation (mm/day)
 )
 observed = target_data_mm  # Streamflow (mm/day)
 
@@ -179,14 +178,14 @@ println()
 
 # Use the predefined train/test indices and filter for valid data
 train_forcing = (
-    P = forcing_nt.P[train_idxs],
-    T = forcing_nt.T[train_idxs],
-    Ep = forcing_nt.Ep[train_idxs]
+    P=forcing_nt.P[train_idxs],
+    T=forcing_nt.T[train_idxs],
+    Ep=forcing_nt.Ep[train_idxs]
 )
 test_forcing = (
-    P = forcing_nt.P[test_idxs],
-    T = forcing_nt.T[test_idxs],
-    Ep = forcing_nt.Ep[test_idxs]
+    P=forcing_nt.P[test_idxs],
+    T=forcing_nt.T[test_idxs],
+    Ep=forcing_nt.Ep[test_idxs]
 )
 train_obs = observed[train_idxs]
 test_obs = observed[test_idxs]
@@ -194,18 +193,18 @@ test_obs = observed[test_idxs]
 # Remove NaN values from training data
 train_valid = .!(isnan.(train_forcing.P) .| isnan.(train_forcing.T) .| isnan.(train_forcing.Ep) .| isnan.(train_obs))
 train_forcing = (
-    P = train_forcing.P[train_valid],
-    T = train_forcing.T[train_valid],
-    Ep = train_forcing.Ep[train_valid]
+    P=train_forcing.P[train_valid],
+    T=train_forcing.T[train_valid],
+    Ep=train_forcing.Ep[train_valid]
 )
 train_obs = train_obs[train_valid]
 
 # Remove NaN values from testing data
 test_valid = .!(isnan.(test_forcing.P) .| isnan.(test_forcing.T) .| isnan.(test_forcing.Ep) .| isnan.(test_obs))
 test_forcing = (
-    P = test_forcing.P[test_valid],
-    T = test_forcing.T[test_valid],
-    Ep = test_forcing.Ep[test_valid]
+    P=test_forcing.P[test_valid],
+    T=test_forcing.T[test_valid],
+    Ep=test_forcing.Ep[test_valid]
 )
 test_obs = test_obs[test_valid]
 
@@ -251,8 +250,8 @@ println()
 
 # Save sensitivity results
 sensitivity_df = DataFrame(
-    parameter = sensitivity_result["param_names"],
-    sensitivity = sensitivity_result["sensitivities"]
+    parameter=sensitivity_result["param_names"],
+    sensitivity=sensitivity_result["sensitivities"]
 )
 CSV.write(joinpath(@__DIR__, "example1_sensitivity.csv"), sensitivity_df)
 println("  Sensitivity results saved to: example1_sensitivity.csv")
@@ -264,7 +263,7 @@ println()
 println("[Step 5] Running parameter calibration...")
 println("  Algorithm: BBO (Biogeography-Based Optimization)")
 println("  Objective: KGE (Kling-Gupta Efficiency)")
-println("  Iterations: 100")
+println("  Iterations: 1000")
 println("  Trials: 3 (for convergence diagnostics)")
 println("  This may take several minutes...")
 println()
@@ -274,7 +273,7 @@ calib_result = HydroModelMCP.Calibration.calibrate_model(
     train_forcing,
     train_obs;
     algorithm="BBO",
-    maxiters=100,
+    maxiters=1000,
     n_trials=3,
     objective="KGE",
     solver_type="ODE",
@@ -443,30 +442,30 @@ println("  ✓ example1_results.json")
 
 # Export calibration time series
 cal_df = DataFrame(
-    date = dates[train_idxs][train_valid],
-    time_step = 1:length(train_obs),
-    observed = train_obs,
-    simulated = cal_sim,
-    residual = train_obs .- cal_sim
+    date=dates[train_idxs][train_valid],
+    time_step=1:length(train_obs),
+    observed=train_obs,
+    simulated=cal_sim,
+    residual=train_obs .- cal_sim
 )
 CSV.write(joinpath(@__DIR__, "example1_calibration_timeseries.csv"), cal_df)
 println("  ✓ example1_calibration_timeseries.csv")
 
 # Export validation time series
 val_df = DataFrame(
-    date = dates[test_idxs][test_valid],
-    time_step = 1:length(test_obs),
-    observed = test_obs,
-    simulated = val_sim,
-    residual = test_obs .- val_sim
+    date=dates[test_idxs][test_valid],
+    time_step=1:length(test_obs),
+    observed=test_obs,
+    simulated=val_sim,
+    residual=test_obs .- val_sim
 )
 CSV.write(joinpath(@__DIR__, "example1_validation_timeseries.csv"), val_df)
 println("  ✓ example1_validation_timeseries.csv")
 
 println()
-println("=" ^ 80)
+println("="^80)
 println("Example 1 Complete!")
-println("=" ^ 80)
+println("="^80)
 println()
 println("Summary:")
 println("  - Calibration KGE: $(round(cal_metrics["KGE"], digits=4))")

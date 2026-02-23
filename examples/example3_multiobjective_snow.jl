@@ -99,8 +99,7 @@ println("  Catchment area: $(round(area, digits=2)) km²")
 # Convert streamflow from ft³/s to mm/day
 # Formula: flow_mm_day = (10^3) * flow_ft3_s * 0.0283168 * 3600 * 24 / (area * 10^6)
 # Simplifies to: flow_mm_day = flow_ft3_s * 2446.5792 / area
-conversion_factor = 2446.5792 / area
-target_data_mm = target_data .* conversion_factor
+target_data_mm = target_data * (10^3) * 0.0283168 * 3600 * 24 / (area * (10^6))
 
 # Create forcing NamedTuple
 forcing_nt = (
@@ -248,7 +247,7 @@ multi_result = HydroModelMCP.Calibration.calibrate_multiobjective(
     train_obs;
     objectives=["NSE", "LogNSE"],
     algorithm="NSGA2",
-    maxiters=100,
+    maxiters=1000,
     population_size=50,
     solver_type="ODE",
     interp_type="LINEAR"

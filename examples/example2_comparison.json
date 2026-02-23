@@ -1,0 +1,54 @@
+{
+    "scenario": "arid_ephemeral",
+    "transformation_methods": {
+        "boxcox": {
+            "method": "boxcox",
+            "floor": 1.0e-6,
+            "lambda": -0.1
+        },
+        "log": {
+            "method": "log",
+            "floor": 1.0e-6
+        }
+    },
+    "log_calibration": {
+        "parameters": {
+            "x1": 679.4768365545902,
+            "x4": -17.999561853901636,
+            "x2": 0.2656669632480026,
+            "x3": 255.49171061669196
+        },
+        "validation_metrics": {
+            "KGE": 0.22303853435335375,
+            "LogNSE": -0.3034880112546141,
+            "RMSE": 3.369506407990697,
+            "NSE": 0.2804136940736942,
+            "R2": 0.3211483402658266,
+            "LogKGE": 0.0595530683085056,
+            "PBIAS": 12.842776429062457
+        },
+        "objective": "LogKGE"
+    },
+    "log_transform_recommended": true,
+    "model": "gr4j",
+    "magnitude_ratio": 1.7300000000000002e6,
+    "original_calibration": {
+        "parameters": {
+            "x1": 845.5005062613334,
+            "x4": -8.952588352746355,
+            "x2": 0.11277709335970788,
+            "x3": 64.57533411220814
+        },
+        "validation_metrics": {
+            "KGE": 0.4195322993737963,
+            "LogNSE": 0.009819249780692929,
+            "RMSE": 2.9392553871578113,
+            "NSE": 0.4524485134435201,
+            "R2": 0.487268379171686,
+            "LogKGE": 0.22176476593627992,
+            "PBIAS": 9.404609109835132
+        },
+        "objective": "KGE"
+    },
+    "data_file": "G:\\Dataset\\camels_dataset.npz"
+}
