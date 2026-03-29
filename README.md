@@ -10,9 +10,9 @@ The server currently provides:
 - Discovery tools such as `list_models`, `find_model`, `get_model_info`, `get_model_variables`, and `get_model_parameters`.
 - Simulation and validation tools such as `run_simulation`, `list_workspace_files`, `clear_session_cache`, `run_ensemble_parameters`, and `run_validation`.
 - Calibration workflow tools such as `compute_metrics`, `split_data`, `run_sensitivity`, `generate_samples`, `calibrate_model`, `calibrate_multiobjective`, `diagnose_calibration`, `configure_objectives`, `init_calibration_setup`, and `compute_diagnostics_full`.
-- Static resources for model catalog browsing, algorithm guidance, objective guidance, and calibration-result listing.
-- Exact per-model resources for `info`, `parameters`, and `variables`.
-- One MCP prompt, `hydrology_expert_review`, for structured hydrology reasoning.
+- Resources for model catalog browsing, workflow guides, template catalog metadata, and stored-result indexes.
+- Model details remain available through unified discovery tools on demand.
+- Four MCP prompts: `hydrology_expert_review`, `runoff_workspace_workflow`, `calibration_workflow_plan`, and `hydrology_result_review`.
 
 ## Upstream MCP Design Notes
 
@@ -22,7 +22,7 @@ This project was reviewed against the upstream `ModelContextProtocol.jl` README 
 - Upstream docs: [stable docs](https://juliasmlm.github.io/ModelContextProtocol.jl/stable/)
 - Upstream example used for comparison: [`examples/time_server.jl`](https://github.com/JuliaSMLM/ModelContextProtocol.jl/blob/main/examples/time_server.jl)
 
-One implementation detail matters here: in the installed `ModelContextProtocol.jl v0.4.0`, `resources/read` resolves exact resource URIs in the handler. Because of that, HydroModelMCP registers exact model resource URIs and exposes template metadata separately at `hydro://meta/resource-templates` instead of relying on wildcard resource URIs.
+One implementation detail matters here: HydroModelMCP patches the installed `ModelContextProtocol.jl` runtime so `resources/templates/list` is exposed and supported URI templates can be read dynamically through `resources/read`. Runtime model access still stays tool-first, while template-addressable resources provide compact discoverability.
 
 ## Installation
 
@@ -113,21 +113,48 @@ If `julia` resolves to a Windows Store shim, use the absolute Julia binary path 
 
 ## Resource Layout
 
-Always-available resources:
+Always-available top-level resources:
 
 - `hydro://models/catalog`
+- `hydro://models/knowledge-index`
+- `hydro://models/knowledge-coverage`
+- `hydro://guides/model-discovery`
 - `hydro://guides/algorithms`
 - `hydro://guides/objectives`
+- `hydro://guides/metrics`
+- `hydro://guides/data-handles`
+- `hydro://guides/runoff-workspace`
+- `hydro://guides/result-artifacts`
 - `hydro://meta/resource-templates`
 - `hydro://calibration/results`
+- `hydro://sensitivity/results`
+- `hydro://ensemble/results`
 
-Per-model exact resources are generated at startup:
+Stored result resources are registered at startup for any IDs already present in storage:
+
+- `hydro://calibration/results/<result_id>`
+- `hydro://sensitivity/results/<result_id>`
+- `hydro://ensemble/results/<result_id>`
+
+Template-addressable model resources:
 
 - `hydro://models/<model_name>/info`
 - `hydro://models/<model_name>/parameters`
 - `hydro://models/<model_name>/variables`
+- `hydro://models/<model_name>/knowledge`
 
-The model catalog includes all exact URIs, including `variables_uri`, so clients can browse first and read later.
+Discovery tools remain the most reliable workflow path:
+
+- `find_model`
+- `get_model_info`
+- `get_model_parameters`
+- `get_model_variables`
+
+The model catalog includes model names, template metadata, knowledge resource URIs, and preferred tools so clients can browse compactly and then switch into tool-oriented workflows.
+
+Resource templates are discoverable through the protocol itself:
+
+- `resources/templates/list`
 
 ## Project Layout
 
@@ -158,7 +185,7 @@ The test suite includes:
 
 - Core discovery, metrics, sampling, sensitivity, calibration, and ensemble checks.
 - Contract checks for the runoff-forecast skill surface, including simulation output artifacts, workspace listing, and session-cache cleanup.
-- Server assembly checks for tool registration, prompt registration, and exact resource registration.
+- Server assembly checks for tool registration, prompt registration, and compact resource registration.
 
 ## Example MCP Usage
 
@@ -174,6 +201,18 @@ Read the catalog resource:
 
 ```text
 hydro://models/catalog
+```
+
+Read a supplementary knowledge resource:
+
+```text
+hydro://models/gr4j/knowledge
+```
+
+Read dynamic model info through a template URI:
+
+```text
+hydro://models/gr4j/info
 ```
 
 Run a simulation:
@@ -228,8 +267,8 @@ Use the prompt:
 
 ## Current Constraints
 
-- Exact per-model resources are supported. Template metadata is published separately for clients because wildcard resource URIs are not resolved by the installed `ModelContextProtocol.jl` handler.
-- Stored result IDs are listed through `hydro://calibration/results`. If you need fresh per-result resource registration after new runs, restart the server or add an explicit result-fetch tool.
+- Per-model template URIs are metadata only because the installed `ModelContextProtocol.jl` handler resolves exact registered URIs rather than wildcard templates, and this server intentionally avoids per-model resource registration to keep startup and `resources/list` compact.
+- Stored result IDs are listed through `hydro://calibration/results`, `hydro://sensitivity/results`, and `hydro://ensemble/results`. If you need fresh per-result resource registration after new runs, restart the server or rebuild the server resource registry.
 - Final result artifacts are written to `./result`, while transient `data_handle` payloads prefer session cache and can be cleared with `clear_session_cache`.
 
 ## Acknowledgements

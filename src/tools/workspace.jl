@@ -26,8 +26,15 @@ list_workspace_files_tool = MCPTool(
         !isnothing(validation_error) && return create_error_response(validation_error)
 
         try
-            directory = resolve_workspace_path(string(params["directory"]); must_exist = true)
-            isdir(directory) || throw(ArgumentError("Directory not found: $directory"))
+            directory = resolve_workspace_path(string(params["directory"]); must_exist = false)
+            created_directory = false
+
+            if !ispath(directory)
+                mkpath(directory)
+                created_directory = true
+            end
+
+            isdir(directory) || throw(ArgumentError("Path is not a directory: $directory"))
 
             include_size = Bool(get(params, "include_size", true))
             include_modified = Bool(get(params, "include_modified", true))
@@ -56,6 +63,7 @@ list_workspace_files_tool = MCPTool(
             return create_json_response(Dict(
                 "status" => "success",
                 "directory" => directory,
+                "created_directory" => created_directory,
                 "count" => length(files),
                 "files" => files,
             ))

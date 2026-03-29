@@ -1,0 +1,3493 @@
+[
+  {
+    "model_id": "01",
+    "model_name": {
+      "display_name": "Collie River Basin 1",
+      "code_name": "m_01_collie1_1p_1s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.1",
+      "reference": "",
+      "figure": "Figure A.2"
+    },
+    "intro": "Collie River Basin 1 is described in MARRMoT Appendix A.1. It has an unspecified number of stores and 1 parameters. It aims to represent Evaporation from soil moisture; Saturation excess surface runoff.",
+    "origin": {
+      "study_context": "",
+      "region": "Collie River Basin",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 1,
+      "stores": [
+        "soil moisture"
+      ]
+    },
+    "represented_processes": [
+      "Evaporation from soil moisture",
+      "Saturation excess surface runoff"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 1,
+      "parameter_names": [
+        "Smax"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Collie River Basin 1",
+      "model ID 01",
+      "MARRMoT v2",
+      "A.1",
+      "m_01_collie1_1p_1s",
+      "Collie River Basin",
+      "1 parameters",
+      "Evaporation from soil moisture",
+      "Saturation excess surface runoff"
+    ],
+    "summary_for_retrieval": "Collie River Basin 1 (model ID 01) in A.1 of MARRMoT v2 uses unspecified stores and 1 parameters; it represents Evaporation from soil moisture; Saturation excess surface runoff.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "basic",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "02",
+    "model_name": {
+      "display_name": "Wetland model",
+      "code_name": "m_02_wetland_4p_1s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.2",
+      "reference": "",
+      "figure": "Figure A.3"
+    },
+    "intro": "Wetland model is described in MARRMoT Appendix A.2. It has an unspecified number of stores and 4 parameters. It aims to represent Stylized interception by vegetation; Evaporation; Saturation excess runoff generated from a distribution of soil depths.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 4,
+      "stores": [
+        "soil moisture",
+        "soil water",
+        "groundwater"
+      ]
+    },
+    "represented_processes": [
+      "Stylized interception by vegetation",
+      "Evaporation",
+      "Saturation excess runoff generated from a distribution of soil depths",
+      "A linear relation between storage and slow runoff"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 4,
+      "parameter_names": [
+        "Dw",
+        "Sw,max",
+        "βw",
+        "Kw"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Wetland model",
+      "model ID 02",
+      "MARRMoT v2",
+      "A.2",
+      "m_02_wetland_4p_1s",
+      "4 parameters",
+      "Stylized interception by vegetation",
+      "Evaporation",
+      "Saturation excess runoff generated from a distribution of soil depths",
+      "A linear relation between storage and slow runoff"
+    ],
+    "summary_for_retrieval": "Wetland model (model ID 02) in A.2 of MARRMoT v2 uses unspecified stores and 4 parameters; it represents Stylized interception by vegetation; Evaporation.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "03",
+    "model_name": {
+      "display_name": "Collie River Basin 2",
+      "code_name": "m_03_collie2_4p_1s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.3",
+      "reference": "",
+      "figure": "Figure A.4"
+    },
+    "intro": "Collie River Basin 2 is described in MARRMoT Appendix A.3. It has an unspecified number of stores and 4 parameters. It aims to represent Separate bare soil and vegetation evaporation; Saturation excess surface runoff; Subsurface runoff.",
+    "origin": {
+      "study_context": "",
+      "region": "Collie River Basin",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 4,
+      "stores": [
+        "soil moisture"
+      ]
+    },
+    "represented_processes": [
+      "Separate bare soil and vegetation evaporation",
+      "Saturation excess surface runoff",
+      "Subsurface runoff"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 4,
+      "parameter_names": [
+        "Smax",
+        "Sfc",
+        "a",
+        "M"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Collie River Basin 2",
+      "model ID 03",
+      "MARRMoT v2",
+      "A.3",
+      "m_03_collie2_4p_1s",
+      "Collie River Basin",
+      "4 parameters",
+      "Separate bare soil and vegetation evaporation",
+      "Saturation excess surface runoff",
+      "Subsurface runoff"
+    ],
+    "summary_for_retrieval": "Collie River Basin 2 (model ID 03) in A.3 of MARRMoT v2 uses unspecified stores and 4 parameters; it represents Separate bare soil and vegetation evaporation; Saturation excess surface runoff.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "basic",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "04",
+    "model_name": {
+      "display_name": "New Zealand model v1",
+      "code_name": "m_04_newzealand1_6p_1s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.4",
+      "reference": "",
+      "figure": "Figure A.5"
+    },
+    "intro": "New Zealand model v1 is described in MARRMoT Appendix A.4. It has an unspecified number of stores and 6 parameters. It aims to represent Separate vegetation and bare soil evaporation; Saturation excess overland flow; Subsurface runoff when soil moisture exceeds field capacity.",
+    "origin": {
+      "study_context": "",
+      "region": "New Zealand",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 6,
+      "stores": [
+        "soil moisture"
+      ]
+    },
+    "represented_processes": [
+      "Separate vegetation and bare soil evaporation",
+      "Saturation excess overland flow",
+      "Subsurface runoff when soil moisture exceeds field capacity",
+      "Baseflow"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 6,
+      "parameter_names": [
+        "Smax",
+        "Sfc",
+        "M",
+        "a",
+        "b",
+        "tc,bf"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "New Zealand model v1",
+      "model ID 04",
+      "MARRMoT v2",
+      "A.4",
+      "m_04_newzealand1_6p_1s",
+      "New Zealand",
+      "6 parameters",
+      "Separate vegetation and bare soil evaporation",
+      "Saturation excess overland flow",
+      "Subsurface runoff when soil moisture exceeds field capacity",
+      "Baseflow"
+    ],
+    "summary_for_retrieval": "New Zealand model v1 (model ID 04) in A.4 of MARRMoT v2 uses unspecified stores and 6 parameters; it represents Separate vegetation and bare soil evaporation; Saturation excess overland flow.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "basic",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "05",
+    "model_name": {
+      "display_name": "IHACRES",
+      "code_name": "m_05_ihacres_7p_1s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.5",
+      "reference": "",
+      "figure": "Figure A.6"
+    },
+    "intro": "IHACRES is described in MARRMoT Appendix A.5. It has an unspecified number of stores and 7 parameters. It aims to represent Catchment deficit build-up; Slow and fast routing of effective precipitation.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 7,
+      "stores": [
+        "deficit store"
+      ]
+    },
+    "represented_processes": [
+      "Catchment deficit build-up",
+      "Slow and fast routing of effective precipitation"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 7,
+      "parameter_names": [
+        "lp",
+        "d",
+        "p",
+        "α",
+        "τq",
+        "τs",
+        "τd"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "IHACRES",
+      "model ID 05",
+      "MARRMoT v2",
+      "A.5",
+      "m_05_ihacres_7p_1s",
+      "7 parameters",
+      "Catchment deficit build-up",
+      "Slow and fast routing of effective precipitation"
+    ],
+    "summary_for_retrieval": "IHACRES (model ID 05) in A.5 of MARRMoT v2 uses unspecified stores and 7 parameters; it represents Catchment deficit build-up; Slow and fast routing of effective precipitation.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "06",
+    "model_name": {
+      "display_name": "Alpine model v1",
+      "code_name": "m_06_alpine1_4p_2s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.6",
+      "reference": "",
+      "figure": "Figure A.7"
+    },
+    "intro": "Alpine model v1 is described in MARRMoT Appendix A.6. It has an unspecified number of stores and 4 parameters. It aims to represent Snow accumulation and melt; Saturation excess overland flow; Linear subsurface runoff.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 4,
+      "stores": [
+        "soil moisture",
+        "snow storage",
+        "snow"
+      ]
+    },
+    "represented_processes": [
+      "Snow accumulation and melt",
+      "Saturation excess overland flow",
+      "Linear subsurface runoff"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 4,
+      "parameter_names": [
+        "Tt",
+        "ddbf",
+        "Smax",
+        "tc"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Alpine model v1",
+      "model ID 06",
+      "MARRMoT v2",
+      "A.6",
+      "m_06_alpine1_4p_2s",
+      "4 parameters",
+      "Snow accumulation and melt",
+      "Saturation excess overland flow",
+      "Linear subsurface runoff"
+    ],
+    "summary_for_retrieval": "Alpine model v1 (model ID 06) in A.6 of MARRMoT v2 uses unspecified stores and 4 parameters; it represents Snow accumulation and melt; Saturation excess overland flow.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "07",
+    "model_name": {
+      "display_name": "GR4J",
+      "code_name": "m_07_gr4j_4p_2s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.7",
+      "reference": "",
+      "figure": "Figure A.8"
+    },
+    "intro": "GR4J is described in MARRMoT Appendix A.7. It has an unspecified number of stores and 4 parameters. It aims to represent Implicit interception by vegetation, expressed as net precipitation or evaporation; Different time delays within the catchment expressed by two hydrographs; Water exchange with neighbouring catchments.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 4,
+      "stores": [
+        "soil moisture",
+        "groundwater",
+        "routing store"
+      ]
+    },
+    "represented_processes": [
+      "Implicit interception by vegetation, expressed as net precipitation or evaporation",
+      "Different time delays within the catchment expressed by two hydrographs",
+      "Water exchange with neighbouring catchments"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 4,
+      "parameter_names": [
+        "x1",
+        "x2",
+        "x3",
+        "x4"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "GR4J",
+      "model ID 07",
+      "MARRMoT v2",
+      "A.7",
+      "m_07_gr4j_4p_2s",
+      "4 parameters",
+      "Implicit interception by vegetation, expressed as net precipitation or evaporation",
+      "Different time delays within the catchment expressed by two hydrographs",
+      "Water exchange with neighbouring catchments"
+    ],
+    "summary_for_retrieval": "GR4J (model ID 07) in A.7 of MARRMoT v2 uses unspecified stores and 4 parameters; it represents Implicit interception by vegetation, expressed as net precipitation or evaporation; Different time delays within the catchment expressed by two hydrographs.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "08",
+    "model_name": {
+      "display_name": "United States model",
+      "code_name": "m_08_us1_5p_2s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.8",
+      "reference": "",
+      "figure": "Figure A.9"
+    },
+    "intro": "United States model is described in MARRMoT Appendix A.8. It has an unspecified number of stores and 5 parameters. It aims to represent Interception as a percentage of precipitation; Separate unsaturated and saturated zones; Separate bare soil evaporation and vegetation transpiration.",
+    "origin": {
+      "study_context": "",
+      "region": "United States",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 5,
+      "stores": [
+        "unsaturated zone",
+        "saturated zone",
+        "soil moisture"
+      ]
+    },
+    "represented_processes": [
+      "Interception as a percentage of precipitation",
+      "Separate unsaturated and saturated zones",
+      "Separate bare soil evaporation and vegetation transpiration",
+      "Saturation excess overland flow",
+      "Subsurface flow"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 5,
+      "parameter_names": [
+        "αei",
+        "M",
+        "Smax",
+        "fc",
+        "αss"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "United States model",
+      "model ID 08",
+      "MARRMoT v2",
+      "A.8",
+      "m_08_us1_5p_2s",
+      "United States",
+      "5 parameters",
+      "Interception as a percentage of precipitation",
+      "Separate unsaturated and saturated zones",
+      "Separate bare soil evaporation and vegetation transpiration",
+      "Saturation excess overland flow",
+      "Subsurface flow"
+    ],
+    "summary_for_retrieval": "United States model (model ID 08) in A.8 of MARRMoT v2 uses unspecified stores and 5 parameters; it represents Interception as a percentage of precipitation; Separate unsaturated and saturated zones.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "basic",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "09",
+    "model_name": {
+      "display_name": "Susannah Brook model v1-5",
+      "code_name": "m_09_susannah1_6p_2s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.9",
+      "reference": "",
+      "figure": "Figure A.10"
+    },
+    "intro": "Susannah Brook model v1-5 is described in MARRMoT Appendix A.9. It has an unspecified number of stores and 6 parameters. It aims to represent Evaporation from soil and transpiration from vegetation; Saturation excess and non-linear subsurface flow; Groundwater recharge and baseflow.",
+    "origin": {
+      "study_context": "",
+      "region": "Susannah Brook",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 6,
+      "stores": [
+        "upper zone",
+        "soil moisture",
+        "groundwater"
+      ]
+    },
+    "represented_processes": [
+      "Evaporation from soil and transpiration from vegetation",
+      "Saturation excess and non-linear subsurface flow",
+      "Groundwater recharge and baseflow"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 6,
+      "parameter_names": [
+        "Sb",
+        "Sfc",
+        "M",
+        "a",
+        "b",
+        "r"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Susannah Brook model v1-5",
+      "model ID 09",
+      "MARRMoT v2",
+      "A.9",
+      "m_09_susannah1_6p_2s",
+      "Susannah Brook",
+      "6 parameters",
+      "Evaporation from soil and transpiration from vegetation",
+      "Saturation excess and non-linear subsurface flow",
+      "Groundwater recharge and baseflow"
+    ],
+    "summary_for_retrieval": "Susannah Brook model v1-5 (model ID 09) in A.9 of MARRMoT v2 uses unspecified stores and 6 parameters; it represents Evaporation from soil and transpiration from vegetation; Saturation excess and non-linear subsurface flow.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "basic",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "10",
+    "model_name": {
+      "display_name": "Susannah Brook model v2",
+      "code_name": "m_10_susannah2_6p_2s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.10",
+      "reference": "",
+      "figure": "Figure A.11"
+    },
+    "intro": "Susannah Brook model v2 is described in MARRMoT Appendix A.10. It has an unspecified number of stores and 6 parameters. It aims to represent Separation of saturated zone and a variable-size unsaturated zone; Evaporation from unsaturated and saturated zones; Saturation excess and non-linear subsurface flow.",
+    "origin": {
+      "study_context": "",
+      "region": "Susannah Brook",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 6,
+      "stores": [
+        "unsaturated zone",
+        "saturated zone",
+        "soil moisture",
+        "groundwater",
+        "unsaturated store"
+      ]
+    },
+    "represented_processes": [
+      "Separation of saturated zone and a variable-size unsaturated zone",
+      "Evaporation from unsaturated and saturated zones",
+      "Saturation excess and non-linear subsurface flow",
+      "Deep groundwater recharge"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 6,
+      "parameter_names": [
+        "Sb",
+        "φ",
+        "fc",
+        "r",
+        "c",
+        "d"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Susannah Brook model v2",
+      "model ID 10",
+      "MARRMoT v2",
+      "A.10",
+      "m_10_susannah2_6p_2s",
+      "Susannah Brook",
+      "6 parameters",
+      "Separation of saturated zone and a variable-size unsaturated zone",
+      "Evaporation from unsaturated and saturated zones",
+      "Saturation excess and non-linear subsurface flow",
+      "Deep groundwater recharge"
+    ],
+    "summary_for_retrieval": "Susannah Brook model v2 (model ID 10) in A.10 of MARRMoT v2 uses unspecified stores and 6 parameters; it represents Separation of saturated zone and a variable-size unsaturated zone; Evaporation from unsaturated and saturated zones.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "basic",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "11",
+    "model_name": {
+      "display_name": "Collie River Basin 3",
+      "code_name": "m_11_collie3_6p_2s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.11",
+      "reference": "",
+      "figure": "Figure A.12"
+    },
+    "intro": "Collie River Basin 3 is described in MARRMoT Appendix A.11. It has an unspecified number of stores and 6 parameters. It aims to represent Separate bare soil and vegetation evaporation; Saturation excess surface runoff; Non-linear subsurface runoff.",
+    "origin": {
+      "study_context": "",
+      "region": "Collie River Basin",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 6,
+      "stores": [
+        "soil moisture",
+        "groundwater"
+      ]
+    },
+    "represented_processes": [
+      "Separate bare soil and vegetation evaporation",
+      "Saturation excess surface runoff",
+      "Non-linear subsurface runoff",
+      "Non-linear groundwater runoff"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 6,
+      "parameter_names": [
+        "Smax",
+        "Sfc",
+        "a",
+        "M",
+        "b",
+        "λ"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Collie River Basin 3",
+      "model ID 11",
+      "MARRMoT v2",
+      "A.11",
+      "m_11_collie3_6p_2s",
+      "Collie River Basin",
+      "6 parameters",
+      "Separate bare soil and vegetation evaporation",
+      "Saturation excess surface runoff",
+      "Non-linear subsurface runoff",
+      "Non-linear groundwater runoff"
+    ],
+    "summary_for_retrieval": "Collie River Basin 3 (model ID 11) in A.11 of MARRMoT v2 uses unspecified stores and 6 parameters; it represents Separate bare soil and vegetation evaporation; Saturation excess surface runoff.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "basic",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "12",
+    "model_name": {
+      "display_name": "Alpine model v2",
+      "code_name": "m_12_alpine2_6p_2s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.12",
+      "reference": "",
+      "figure": "Figure A.13"
+    },
+    "intro": "Alpine model v2 is described in MARRMoT Appendix A.12. It has an unspecified number of stores and 6 parameters. It aims to represent Snow accumulation and melt; Saturation excess overland flow; Linear subsurface runoff.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 6,
+      "stores": [
+        "soil moisture",
+        "snow storage",
+        "snow"
+      ]
+    },
+    "represented_processes": [
+      "Snow accumulation and melt",
+      "Saturation excess overland flow",
+      "Linear subsurface runoff"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 6,
+      "parameter_names": [
+        "Tt",
+        "ddbf",
+        "Smax",
+        "Sfc",
+        "tc,in",
+        "tc,bf"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Alpine model v2",
+      "model ID 12",
+      "MARRMoT v2",
+      "A.12",
+      "m_12_alpine2_6p_2s",
+      "6 parameters",
+      "Snow accumulation and melt",
+      "Saturation excess overland flow",
+      "Linear subsurface runoff"
+    ],
+    "summary_for_retrieval": "Alpine model v2 (model ID 12) in A.12 of MARRMoT v2 uses unspecified stores and 6 parameters; it represents Snow accumulation and melt; Saturation excess overland flow.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "13",
+    "model_name": {
+      "display_name": "Hillslope model",
+      "code_name": "m_13_hillslope_7p_2s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.13",
+      "reference": "",
+      "figure": "Figure A.14"
+    },
+    "intro": "Hillslope model is described in MARRMoT Appendix A.13. It has an unspecified number of stores and 7 parameters. It aims to represent Stylized interception by vegetation; Evaporation; Separation between rapid subsurface flow and groundwater recharge.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 7,
+      "stores": [
+        "soil moisture",
+        "soil water",
+        "groundwater"
+      ]
+    },
+    "represented_processes": [
+      "Stylized interception by vegetation",
+      "Evaporation",
+      "Separation between rapid subsurface flow and groundwater recharge",
+      "Capillary rise and linear relation runoff from groundwater"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 7,
+      "parameter_names": [
+        "Dw",
+        "Sh,max",
+        "βh",
+        "a",
+        "Th",
+        "C",
+        "Kh"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Hillslope model",
+      "model ID 13",
+      "MARRMoT v2",
+      "A.13",
+      "m_13_hillslope_7p_2s",
+      "7 parameters",
+      "Stylized interception by vegetation",
+      "Evaporation",
+      "Separation between rapid subsurface flow and groundwater recharge",
+      "Capillary rise and linear relation runoff from groundwater"
+    ],
+    "summary_for_retrieval": "Hillslope model (model ID 13) in A.13 of MARRMoT v2 uses unspecified stores and 7 parameters; it represents Stylized interception by vegetation; Evaporation.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "14",
+    "model_name": {
+      "display_name": "TOPMODEL",
+      "code_name": "m_14_topmodel_7p_2s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.14",
+      "reference": "",
+      "figure": "Figure A.15"
+    },
+    "intro": "TOPMODEL is described in MARRMoT Appendix A.14. It has an unspecified number of stores and 7 parameters. It aims to represent Variable saturated area with direct runoff from the saturated part; Infiltration and saturation excess flow; Leakage to, and non-linear baseflow from, a deficit store.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 7,
+      "stores": [
+        "unsaturated zone",
+        "saturated zone",
+        "soil moisture",
+        "deficit store",
+        "root zone",
+        "combined unsaturated zone and root zone"
+      ]
+    },
+    "represented_processes": [
+      "Variable saturated area with direct runoff from the saturated part",
+      "Infiltration and saturation excess flow",
+      "Leakage to, and non-linear baseflow from, a deficit store"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 7,
+      "parameter_names": [
+        "SUZ,max",
+        "St",
+        "Kd",
+        "q0",
+        "f",
+        "χ",
+        "φ"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "TOPMODEL",
+      "model ID 14",
+      "MARRMoT v2",
+      "A.14",
+      "m_14_topmodel_7p_2s",
+      "7 parameters",
+      "Variable saturated area with direct runoff from the saturated part",
+      "Infiltration and saturation excess flow",
+      "Leakage to, and non-linear baseflow from, a deficit store"
+    ],
+    "summary_for_retrieval": "TOPMODEL (model ID 14) in A.14 of MARRMoT v2 uses unspecified stores and 7 parameters; it represents Variable saturated area with direct runoff from the saturated part; Infiltration and saturation excess flow.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "15",
+    "model_name": {
+      "display_name": "Plateau model",
+      "code_name": "m_15_plateau_8p_2s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.15",
+      "reference": "",
+      "figure": "Figure A.16"
+    },
+    "intro": "Plateau model is described in MARRMoT Appendix A.15. It has an unspecified number of stores and 8 parameters. It aims to represent Stylized interception by vegetation; Evaporation controlled by a wilting point and moisture constrained transpiration; Separation between infiltration and infiltration excess flow.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 8,
+      "stores": [
+        "soil moisture",
+        "soil water",
+        "groundwater"
+      ]
+    },
+    "represented_processes": [
+      "Stylized interception by vegetation",
+      "Evaporation controlled by a wilting point and moisture constrained transpiration",
+      "Separation between infiltration and infiltration excess flow",
+      "Capillary rise and linear relation runoff from groundwater"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 8,
+      "parameter_names": [
+        "Fmax",
+        "Dp",
+        "Su,max",
+        "lp",
+        "p",
+        "Tp",
+        "C",
+        "Kp"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Plateau model",
+      "model ID 15",
+      "MARRMoT v2",
+      "A.15",
+      "m_15_plateau_8p_2s",
+      "8 parameters",
+      "Stylized interception by vegetation",
+      "Evaporation controlled by a wilting point and moisture constrained transpiration",
+      "Separation between infiltration and infiltration excess flow",
+      "Capillary rise and linear relation runoff from groundwater"
+    ],
+    "summary_for_retrieval": "Plateau model (model ID 15) in A.15 of MARRMoT v2 uses unspecified stores and 8 parameters; it represents Stylized interception by vegetation; Evaporation controlled by a wilting point and moisture constrained transpiration.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "16",
+    "model_name": {
+      "display_name": "New Zealand model v2",
+      "code_name": "m_16_newzealand2_8p_2s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.16",
+      "reference": "",
+      "figure": "Figure A.17"
+    },
+    "intro": "New Zealand model v2 is described in MARRMoT Appendix A.16. It has an unspecified number of stores and 8 parameters. It aims to represent Interception by vegetation; Separate vegetation and bare soil evaporation; Saturation excess overland flow.",
+    "origin": {
+      "study_context": "",
+      "region": "New Zealand",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 8,
+      "stores": [
+        "soil moisture",
+        "interception"
+      ]
+    },
+    "represented_processes": [
+      "Interception by vegetation",
+      "Separate vegetation and bare soil evaporation",
+      "Saturation excess overland flow",
+      "Subsurface runoff when soil moisture exceeds field capacity",
+      "Baseflow",
+      "Flow routing"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 8,
+      "parameter_names": [
+        "Imax",
+        "Smax",
+        "Sfc",
+        "M",
+        "a",
+        "b",
+        "tc,bf",
+        "d"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "New Zealand model v2",
+      "model ID 16",
+      "MARRMoT v2",
+      "A.16",
+      "m_16_newzealand2_8p_2s",
+      "New Zealand",
+      "8 parameters",
+      "Interception by vegetation",
+      "Separate vegetation and bare soil evaporation",
+      "Saturation excess overland flow",
+      "Subsurface runoff when soil moisture exceeds field capacity",
+      "Baseflow",
+      "Flow routing"
+    ],
+    "summary_for_retrieval": "New Zealand model v2 (model ID 16) in A.16 of MARRMoT v2 uses unspecified stores and 8 parameters; it represents Interception by vegetation; Separate vegetation and bare soil evaporation.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "basic",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "17",
+    "model_name": {
+      "display_name": "Penman model",
+      "code_name": "m_17_penman_4p_3s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.17",
+      "reference": "",
+      "figure": "Figure A.18"
+    },
+    "intro": "Penman model is described in MARRMoT Appendix A.17. It has an unspecified number of stores and 4 parameters. It aims to represent Moisture accumulation and evaporation from the root zone; Bypass of excess moisture to the stream; Deficit-based groundwater accounting.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 4,
+      "stores": [
+        "soil moisture",
+        "groundwater",
+        "deficit store",
+        "root zone",
+        "routing reservoir"
+      ]
+    },
+    "represented_processes": [
+      "Moisture accumulation and evaporation from the root zone",
+      "Bypass of excess moisture to the stream",
+      "Deficit-based groundwater accounting",
+      "Linear flow routing"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 4,
+      "parameter_names": [
+        "Smax",
+        "φ",
+        "γ",
+        "k1"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Penman model",
+      "model ID 17",
+      "MARRMoT v2",
+      "A.17",
+      "m_17_penman_4p_3s",
+      "4 parameters",
+      "Moisture accumulation and evaporation from the root zone",
+      "Bypass of excess moisture to the stream",
+      "Deficit-based groundwater accounting",
+      "Linear flow routing"
+    ],
+    "summary_for_retrieval": "Penman model (model ID 17) in A.17 of MARRMoT v2 uses unspecified stores and 4 parameters; it represents Moisture accumulation and evaporation from the root zone; Bypass of excess moisture to the stream.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "18",
+    "model_name": {
+      "display_name": "SIMHYD",
+      "code_name": "m_18_simhyd_7p_3s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.18",
+      "reference": "",
+      "figure": "Figure A.19"
+    },
+    "intro": "SIMHYD is described in MARRMoT Appendix A.18. It has an unspecified number of stores and 7 parameters. It aims to represent Interception by vegetation; Infiltration and infiltration excess flow; Preferential groundwater recharge, interflow and saturation excess flow.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 7,
+      "stores": [
+        "soil moisture",
+        "groundwater",
+        "soil moisture store",
+        "interception"
+      ]
+    },
+    "represented_processes": [
+      "Interception by vegetation",
+      "Infiltration and infiltration excess flow",
+      "Preferential groundwater recharge, interflow and saturation excess flow",
+      "Groundwater recharge resulting from filling up of soil moisture storage capacity",
+      "Slow flow from groundwater"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 7,
+      "parameter_names": [
+        "INSC",
+        "COEFF",
+        "SQ",
+        "SMSC",
+        "SUB",
+        "CRAK",
+        "K"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "SIMHYD",
+      "model ID 18",
+      "MARRMoT v2",
+      "A.18",
+      "m_18_simhyd_7p_3s",
+      "7 parameters",
+      "Interception by vegetation",
+      "Infiltration and infiltration excess flow",
+      "Preferential groundwater recharge, interflow and saturation excess flow",
+      "Groundwater recharge resulting from filling up of soil moisture storage capacity",
+      "Slow flow from groundwater"
+    ],
+    "summary_for_retrieval": "SIMHYD (model ID 18) in A.18 of MARRMoT v2 uses unspecified stores and 7 parameters; it represents Interception by vegetation; Infiltration and infiltration excess flow.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "19",
+    "model_name": {
+      "display_name": "Australia model",
+      "code_name": "m_19_australia_8p_3s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.19",
+      "reference": "",
+      "figure": "Figure A.20"
+    },
+    "intro": "Australia model is described in MARRMoT Appendix A.19. It has an unspecified number of stores and 8 parameters. It aims to represent Separation of saturated zone and a variable-size unsaturated zone; Evaporation from unsaturated and saturated zones; Saturation excess and non-linear subsurface flow.",
+    "origin": {
+      "study_context": "",
+      "region": "Australia",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 8,
+      "stores": [
+        "unsaturated zone",
+        "saturated zone",
+        "soil moisture",
+        "groundwater",
+        "unsaturated store"
+      ]
+    },
+    "represented_processes": [
+      "Separation of saturated zone and a variable-size unsaturated zone",
+      "Evaporation from unsaturated and saturated zones",
+      "Saturation excess and non-linear subsurface flow",
+      "Deep groundwater recharge and baseflow"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 8,
+      "parameter_names": [
+        "Sb",
+        "φ",
+        "fc",
+        "αSS",
+        "βSS",
+        "Kdeep",
+        "αBF",
+        "βBF"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Australia model",
+      "model ID 19",
+      "MARRMoT v2",
+      "A.19",
+      "m_19_australia_8p_3s",
+      "Australia",
+      "8 parameters",
+      "Separation of saturated zone and a variable-size unsaturated zone",
+      "Evaporation from unsaturated and saturated zones",
+      "Saturation excess and non-linear subsurface flow",
+      "Deep groundwater recharge and baseflow"
+    ],
+    "summary_for_retrieval": "Australia model (model ID 19) in A.19 of MARRMoT v2 uses unspecified stores and 8 parameters; it represents Separation of saturated zone and a variable-size unsaturated zone; Evaporation from unsaturated and saturated zones.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "basic",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "20",
+    "model_name": {
+      "display_name": "Generalized Surface inFiltration Baseflow model",
+      "code_name": "m_20_gsfb_8p_3s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.20",
+      "reference": "",
+      "figure": "Figure A.21"
+    },
+    "intro": "Generalized Surface inFiltration Baseflow model is described in MARRMoT Appendix A.20. It has an unspecified number of stores and 8 parameters. It aims to represent Saturation excess surface runoff; Threshold-based infiltration; Threshold-based baseflow.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 8,
+      "stores": [
+        "upper zone",
+        "soil moisture",
+        "groundwater",
+        "subsurface store",
+        "deep store",
+        "deep"
+      ]
+    },
+    "represented_processes": [
+      "Saturation excess surface runoff",
+      "Threshold-based infiltration",
+      "Threshold-based baseflow",
+      "Deep percolation and water rise to meet evaporation demand"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 8,
+      "parameter_names": [
+        "C",
+        "NDC",
+        "Smax",
+        "Emax",
+        "Frate",
+        "B",
+        "DPF",
+        "SDRmax"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Generalized Surface inFiltration Baseflow model",
+      "model ID 20",
+      "MARRMoT v2",
+      "A.20",
+      "m_20_gsfb_8p_3s",
+      "8 parameters",
+      "Saturation excess surface runoff",
+      "Threshold-based infiltration",
+      "Threshold-based baseflow",
+      "Deep percolation and water rise to meet evaporation demand"
+    ],
+    "summary_for_retrieval": "Generalized Surface inFiltration Baseflow model (model ID 20) in A.20 of MARRMoT v2 uses unspecified stores and 8 parameters; it represents Saturation excess surface runoff; Threshold-based infiltration.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "21",
+    "model_name": {
+      "display_name": "Flex-B",
+      "code_name": "m_21_flexb_9p_3s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.21",
+      "reference": "",
+      "figure": "Figure A.22"
+    },
+    "intro": "Flex-B is described in MARRMoT Appendix A.21. It has an unspecified number of stores and 9 parameters. It aims to represent Infiltration and saturation excess flow based on a distribution of different soil depths; A split between fast saturation excess flow and preferential recharge to a slow store; Percolation from the unsaturated zone to a slow runoff store.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 9,
+      "stores": [
+        "unsaturated zone",
+        "saturated zone",
+        "soil moisture",
+        "storage compared to maximum",
+        "and maximum",
+        "storage and maximum"
+      ]
+    },
+    "represented_processes": [
+      "Infiltration and saturation excess flow based on a distribution of different soil depths",
+      "A split between fast saturation excess flow and preferential recharge to a slow store",
+      "Percolation from the unsaturated zone to a slow runoff store"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 9,
+      "parameter_names": [
+        "URmax",
+        "β",
+        "D",
+        "Percmax",
+        "Lp",
+        "Nlag,f",
+        "Nlag,s",
+        "Kf",
+        "Ks"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Flex-B",
+      "model ID 21",
+      "MARRMoT v2",
+      "A.21",
+      "m_21_flexb_9p_3s",
+      "9 parameters",
+      "Infiltration and saturation excess flow based on a distribution of different soil depths",
+      "A split between fast saturation excess flow and preferential recharge to a slow store",
+      "Percolation from the unsaturated zone to a slow runoff store"
+    ],
+    "summary_for_retrieval": "Flex-B (model ID 21) in A.21 of MARRMoT v2 uses unspecified stores and 9 parameters; it represents Infiltration and saturation excess flow based on a distribution of different soil depths; A split between fast saturation excess flow and preferential recharge to a slow store.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "22",
+    "model_name": {
+      "display_name": "Variable Infiltration Capacity model",
+      "code_name": "",
+      "aliases": [
+        "VIC"
+      ]
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.22",
+      "reference": "",
+      "figure": "Figure A.23"
+    },
+    "intro": "Variable Infiltration Capacity model is described in MARRMoT Appendix A.22. It has an unspecified number of stores and 10 parameters. It aims to represent Time-varying interception by vegetation; Variable infiltration and saturation excess flow; Interflow and baseflow from a deeper groundwater layer.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 10,
+      "stores": [
+        "soil moisture",
+        "groundwater",
+        "interception",
+        "storage based on maximum"
+      ]
+    },
+    "represented_processes": [
+      "Time-varying interception by vegetation",
+      "Variable infiltration and saturation excess flow",
+      "Interflow and baseflow from a deeper groundwater layer"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 10,
+      "parameter_names": [
+        "I",
+        "Iδ",
+        "Is",
+        "Ssm,max",
+        "b",
+        "k1",
+        "c1",
+        "Sgw,max",
+        "k2",
+        "c2"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Variable Infiltration Capacity model",
+      "model ID 22",
+      "MARRMoT v2",
+      "A.22",
+      "10 parameters",
+      "Time-varying interception by vegetation",
+      "Variable infiltration and saturation excess flow",
+      "Interflow and baseflow from a deeper groundwater layer"
+    ],
+    "summary_for_retrieval": "Variable Infiltration Capacity model (model ID 22) in A.22 of MARRMoT v2 uses unspecified stores and 10 parameters; it represents Time-varying interception by vegetation; Variable infiltration and saturation excess flow.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "23",
+    "model_name": {
+      "display_name": "Large-scale catchment water and salt balance model element",
+      "code_name": "m_23_lascam_24p_3s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.23",
+      "reference": "",
+      "figure": "Figure A.24"
+    },
+    "intro": "Large-scale catchment water and salt balance model element is described in MARRMoT Appendix A.23. It has an unspecified number of stores and 24 parameters. It aims to represent Stylized interception; Saturation and infiltration excess surface runoff; An inner layout representing near-stream saturated storage, deep saturated storage and medium-depth unsaturated storage.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 24,
+      "stores": [
+        "upper zone",
+        "lower zone",
+        "soil water",
+        "groundwater",
+        "unsaturated infiltration store",
+        "deep layers"
+      ]
+    },
+    "represented_processes": [
+      "Stylized interception",
+      "Saturation and infiltration excess surface runoff",
+      "An inner layout representing near-stream saturated storage, deep saturated storage and medium-depth unsaturated storage",
+      "Subsurface saturation and infiltration excess flow to the near-stream store",
+      "Percolation to and capillary rise from groundwater"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 24,
+      "parameter_names": [
+        "αf",
+        "βf",
+        "Bmax",
+        "Fmax",
+        "αc",
+        "βc",
+        "Amin",
+        "Amax",
+        "αss",
+        "βss",
+        "c",
+        "αg",
+        "βg",
+        "γf",
+        "δf",
+        "td",
+        "αb",
+        "βb",
+        "γa",
+        "δa",
+        "αa",
+        "βa",
+        "γb",
+        "δb"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Large-scale catchment water and salt balance model element",
+      "model ID 23",
+      "MARRMoT v2",
+      "A.23",
+      "m_23_lascam_24p_3s",
+      "24 parameters",
+      "Stylized interception",
+      "Saturation and infiltration excess surface runoff",
+      "An inner layout representing near-stream saturated storage, deep saturated storage and medium-depth unsaturated storage",
+      "Subsurface saturation and infiltration excess flow to the near-stream store",
+      "Percolation to and capillary rise from groundwater"
+    ],
+    "summary_for_retrieval": "Large-scale catchment water and salt balance model element (model ID 23) in A.23 of MARRMoT v2 uses unspecified stores and 24 parameters; it represents Stylized interception; Saturation and infiltration excess surface runoff.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "24",
+    "model_name": {
+      "display_name": "MOPEX-1",
+      "code_name": "m_24_mopex1_5p_4s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.24",
+      "reference": "",
+      "figure": "Figure A.25"
+    },
+    "intro": "MOPEX-1 is described in MARRMoT Appendix A.24. It has an unspecified number of stores and 5 parameters. It aims to represent Saturation excess flow; Infiltration to deeper soil layers; A split between fast and slow runoff.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 5,
+      "stores": [
+        "soil moisture",
+        "groundwater",
+        "fast flow routing reservoir",
+        "slow flow routing reservoir",
+        "groundwater and groundwater"
+      ]
+    },
+    "represented_processes": [
+      "Saturation excess flow",
+      "Infiltration to deeper soil layers",
+      "A split between fast and slow runoff"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 5,
+      "parameter_names": [
+        "Sb1",
+        "tw",
+        "tu",
+        "Se",
+        "tc"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "MOPEX-1",
+      "model ID 24",
+      "MARRMoT v2",
+      "A.24",
+      "m_24_mopex1_5p_4s",
+      "5 parameters",
+      "Saturation excess flow",
+      "Infiltration to deeper soil layers",
+      "A split between fast and slow runoff"
+    ],
+    "summary_for_retrieval": "MOPEX-1 (model ID 24) in A.24 of MARRMoT v2 uses unspecified stores and 5 parameters; it represents Saturation excess flow; Infiltration to deeper soil layers.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "25",
+    "model_name": {
+      "display_name": "Thames Catchment Model",
+      "code_name": "m_25_tcm_6p_4s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.25",
+      "reference": "",
+      "figure": "Figure A.26"
+    },
+    "intro": "Thames Catchment Model is described in MARRMoT Appendix A.25. It has an unspecified number of stores and 6 parameters. It aims to represent Effective rainfall before infiltration; Preferential recharge; Catchment drying through prolonged soil moisture depletion.",
+    "origin": {
+      "study_context": "",
+      "region": "Thames",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 6,
+      "stores": [
+        "unsaturated zone",
+        "saturated zone",
+        "upper zone",
+        "soil moisture",
+        "groundwater",
+        "deficit store",
+        "root zone",
+        "soil moisture deficit store"
+      ]
+    },
+    "represented_processes": [
+      "Effective rainfall before infiltration",
+      "Preferential recharge",
+      "Catchment drying through prolonged soil moisture depletion",
+      "Groundwater abstraction",
+      "Non-linear groundwater flow"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 6,
+      "parameter_names": [
+        "φ",
+        "rc",
+        "γ",
+        "k1",
+        "ca",
+        "k2"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Thames Catchment Model",
+      "model ID 25",
+      "MARRMoT v2",
+      "A.25",
+      "m_25_tcm_6p_4s",
+      "Thames",
+      "6 parameters",
+      "Effective rainfall before infiltration",
+      "Preferential recharge",
+      "Catchment drying through prolonged soil moisture depletion",
+      "Groundwater abstraction",
+      "Non-linear groundwater flow"
+    ],
+    "summary_for_retrieval": "Thames Catchment Model (model ID 25) in A.25 of MARRMoT v2 uses unspecified stores and 6 parameters; it represents Effective rainfall before infiltration; Preferential recharge.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "basic",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "26",
+    "model_name": {
+      "display_name": "Flex-I",
+      "code_name": "m_26_flexi_10p_4s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.26",
+      "reference": "",
+      "figure": "Figure A.27"
+    },
+    "intro": "Flex-I is described in MARRMoT Appendix A.26. It has an unspecified number of stores and 10 parameters. It aims to represent Interception by vegetation; Infiltration and saturation excess flow based on a distribution of different soil depths; A split between fast saturation excess flow and preferential recharge to a slow store.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 10,
+      "stores": [
+        "unsaturated zone",
+        "saturated zone",
+        "soil moisture",
+        "interception",
+        "storage compared to maximum",
+        "and maximum",
+        "storage and maximum"
+      ]
+    },
+    "represented_processes": [
+      "Interception by vegetation",
+      "Infiltration and saturation excess flow based on a distribution of different soil depths",
+      "A split between fast saturation excess flow and preferential recharge to a slow store",
+      "Percolation from the unsaturated zone to a slow runoff store"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 10,
+      "parameter_names": [
+        "Imax",
+        "URmax",
+        "β",
+        "D",
+        "Percmax",
+        "Lp",
+        "Nlag,f",
+        "Nlag,s",
+        "Kf",
+        "Ks"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Flex-I",
+      "model ID 26",
+      "MARRMoT v2",
+      "A.26",
+      "m_26_flexi_10p_4s",
+      "10 parameters",
+      "Interception by vegetation",
+      "Infiltration and saturation excess flow based on a distribution of different soil depths",
+      "A split between fast saturation excess flow and preferential recharge to a slow store",
+      "Percolation from the unsaturated zone to a slow runoff store"
+    ],
+    "summary_for_retrieval": "Flex-I (model ID 26) in A.26 of MARRMoT v2 uses unspecified stores and 10 parameters; it represents Interception by vegetation; Infiltration and saturation excess flow based on a distribution of different soil depths.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "27",
+    "model_name": {
+      "display_name": "Tank model",
+      "code_name": "m_27_tank_12p_4s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.27",
+      "reference": "",
+      "figure": "Figure A.28"
+    },
+    "intro": "Tank model is described in MARRMoT Appendix A.27. It has an unspecified number of stores and 12 parameters. It aims to represent Runoff on increasing time scales with depth.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 12,
+      "stores": [
+        "upper zone",
+        "intermediate zone",
+        "sub-base zone",
+        "base layer"
+      ]
+    },
+    "represented_processes": [
+      "Runoff on increasing time scales with depth"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 12,
+      "parameter_names": [
+        "A0",
+        "A1",
+        "A2",
+        "t1",
+        "t2",
+        "B0",
+        "B1",
+        "t3",
+        "C0",
+        "C1",
+        "t4",
+        "D1"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Tank model",
+      "model ID 27",
+      "MARRMoT v2",
+      "A.27",
+      "m_27_tank_12p_4s",
+      "12 parameters",
+      "Runoff on increasing time scales with depth"
+    ],
+    "summary_for_retrieval": "Tank model (model ID 27) in A.27 of MARRMoT v2 uses unspecified stores and 12 parameters; it represents Runoff on increasing time scales with depth.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "28",
+    "model_name": {
+      "display_name": "Xinanjiang model",
+      "code_name": "m_28_xinanjiang_12p_4s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.28",
+      "reference": "",
+      "figure": "Figure A.29"
+    },
+    "intro": "Xinanjiang model is described in MARRMoT Appendix A.28. It has an unspecified number of stores and 12 parameters. It aims to represent Runoff from impervious areas; Variable distribution of tension water storage capacities in the catchment; Variable contributing area of free water storages.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 12,
+      "stores": [
+        "interflow routing reservoir",
+        "baseflow routing reservoir",
+        "tension water"
+      ]
+    },
+    "represented_processes": [
+      "Runoff from impervious areas",
+      "Variable distribution of tension water storage capacities in the catchment",
+      "Variable contributing area of free water storages",
+      "Direct surface runoff from the contributing free area",
+      "Delayed interflow and baseflow from the contributing free area"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 12,
+      "parameter_names": [
+        "Aim",
+        "a",
+        "b",
+        "Wmax",
+        "LM",
+        "c",
+        "Smax",
+        "Ex",
+        "kI",
+        "kG",
+        "cI",
+        "cG"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Xinanjiang model",
+      "model ID 28",
+      "MARRMoT v2",
+      "A.28",
+      "m_28_xinanjiang_12p_4s",
+      "12 parameters",
+      "Runoff from impervious areas",
+      "Variable distribution of tension water storage capacities in the catchment",
+      "Variable contributing area of free water storages",
+      "Direct surface runoff from the contributing free area",
+      "Delayed interflow and baseflow from the contributing free area"
+    ],
+    "summary_for_retrieval": "Xinanjiang model (model ID 28) in A.28 of MARRMoT v2 uses unspecified stores and 12 parameters; it represents Runoff from impervious areas; Variable distribution of tension water storage capacities in the catchment.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "29",
+    "model_name": {
+      "display_name": "HyMOD",
+      "code_name": "m_29_hymod_5p_5s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.29",
+      "reference": "",
+      "figure": "Figure A.30"
+    },
+    "intro": "HyMOD is described in MARRMoT Appendix A.29. It has an unspecified number of stores and 5 parameters. It aims to represent Different soil depths throughout the catchment; Separation of flow into fast and slow flow.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 5,
+      "stores": [
+        "soil moisture",
+        "sm",
+        "store s"
+      ]
+    },
+    "represented_processes": [
+      "Different soil depths throughout the catchment",
+      "Separation of flow into fast and slow flow"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 5,
+      "parameter_names": [
+        "Smax",
+        "b",
+        "a",
+        "kf",
+        "ks"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "HyMOD",
+      "model ID 29",
+      "MARRMoT v2",
+      "A.29",
+      "m_29_hymod_5p_5s",
+      "5 parameters",
+      "Different soil depths throughout the catchment",
+      "Separation of flow into fast and slow flow"
+    ],
+    "summary_for_retrieval": "HyMOD (model ID 29) in A.29 of MARRMoT v2 uses unspecified stores and 5 parameters; it represents Different soil depths throughout the catchment; Separation of flow into fast and slow flow.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "30",
+    "model_name": {
+      "display_name": "MOPEX-2",
+      "code_name": "m_30_mopex2_7p_5s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.30",
+      "reference": "",
+      "figure": "Figure A.31"
+    },
+    "intro": "MOPEX-2 is described in MARRMoT Appendix A.30. It has an unspecified number of stores and 7 parameters. It aims to represent Snow accumulation and melt; Saturation excess flow; Infiltration to deeper soil layers.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 7,
+      "stores": [
+        "soil moisture",
+        "groundwater",
+        "root zone",
+        "fast flow routing reservoir",
+        "slow flow routing reservoir",
+        "groundwater and root zone"
+      ]
+    },
+    "represented_processes": [
+      "Snow accumulation and melt",
+      "Saturation excess flow",
+      "Infiltration to deeper soil layers",
+      "A split between fast and slow runoff"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 7,
+      "parameter_names": [
+        "Tcrit",
+        "ddbf",
+        "Sb1",
+        "tw",
+        "tu",
+        "Se",
+        "tc"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "MOPEX-2",
+      "model ID 30",
+      "MARRMoT v2",
+      "A.30",
+      "m_30_mopex2_7p_5s",
+      "7 parameters",
+      "Snow accumulation and melt",
+      "Saturation excess flow",
+      "Infiltration to deeper soil layers",
+      "A split between fast and slow runoff"
+    ],
+    "summary_for_retrieval": "MOPEX-2 (model ID 30) in A.30 of MARRMoT v2 uses unspecified stores and 7 parameters; it represents Snow accumulation and melt; Saturation excess flow.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "31",
+    "model_name": {
+      "display_name": "MOPEX-3",
+      "code_name": "m_31_mopex3_8p_5s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.31",
+      "reference": "",
+      "figure": "Figure A.32"
+    },
+    "intro": "MOPEX-3 is described in MARRMoT Appendix A.31. It has an unspecified number of stores and 8 parameters. It aims to represent Snow accumulation and melt; Saturation excess flow; Infiltration to deeper soil layers.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 8,
+      "stores": [
+        "soil moisture",
+        "groundwater",
+        "routing store",
+        "root zone",
+        "fast flow routing reservoir",
+        "slow flow routing reservoir",
+        "groundwater and root zone"
+      ]
+    },
+    "represented_processes": [
+      "Snow accumulation and melt",
+      "Saturation excess flow",
+      "Infiltration to deeper soil layers",
+      "Subsurface-influenced fast flow",
+      "A split between fast and slow runoff"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 8,
+      "parameter_names": [
+        "Tcrit",
+        "ddbf",
+        "Sb1",
+        "tw",
+        "Sb2",
+        "tu",
+        "Se",
+        "tc"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "MOPEX-3",
+      "model ID 31",
+      "MARRMoT v2",
+      "A.31",
+      "m_31_mopex3_8p_5s",
+      "8 parameters",
+      "Snow accumulation and melt",
+      "Saturation excess flow",
+      "Infiltration to deeper soil layers",
+      "Subsurface-influenced fast flow",
+      "A split between fast and slow runoff"
+    ],
+    "summary_for_retrieval": "MOPEX-3 (model ID 31) in A.31 of MARRMoT v2 uses unspecified stores and 8 parameters; it represents Snow accumulation and melt; Saturation excess flow.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "32",
+    "model_name": {
+      "display_name": "MOPEX-4",
+      "code_name": "m_32_mopex4_10p_5s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.32",
+      "reference": "",
+      "figure": "Figure A.33"
+    },
+    "intro": "MOPEX-4 is described in MARRMoT Appendix A.32. It has an unspecified number of stores and 10 parameters. It aims to represent Snow accumulation and melt; Time-varying interception; Saturation excess flow.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 10,
+      "stores": [
+        "soil moisture",
+        "groundwater",
+        "routing store",
+        "root zone",
+        "fast flow routing reservoir",
+        "slow flow routing reservoir",
+        "groundwater and root zone"
+      ]
+    },
+    "represented_processes": [
+      "Snow accumulation and melt",
+      "Time-varying interception",
+      "Saturation excess flow",
+      "Infiltration to deeper soil layers",
+      "A split between fast and slow runoff"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 10,
+      "parameter_names": [
+        "Tcrit",
+        "ddbf",
+        "Sb1",
+        "tw",
+        "Iα",
+        "Is",
+        "Sb2",
+        "tu",
+        "Se",
+        "tc"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "MOPEX-4",
+      "model ID 32",
+      "MARRMoT v2",
+      "A.32",
+      "m_32_mopex4_10p_5s",
+      "10 parameters",
+      "Snow accumulation and melt",
+      "Time-varying interception",
+      "Saturation excess flow",
+      "Infiltration to deeper soil layers",
+      "A split between fast and slow runoff"
+    ],
+    "summary_for_retrieval": "MOPEX-4 (model ID 32) in A.32 of MARRMoT v2 uses unspecified stores and 10 parameters; it represents Snow accumulation and melt; Time-varying interception.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "33",
+    "model_name": {
+      "display_name": "SACRAMENTO model",
+      "code_name": "m_33_sacramento_11p_5s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.33",
+      "reference": "",
+      "figure": "Figure A.34"
+    },
+    "intro": "SACRAMENTO model is described in MARRMoT Appendix A.33. It has an unspecified number of stores and 13 parameters. It aims to represent Impervious and direct runoff; Within soil division of water storage between tension and free water; Surface runoff, interflow and percolation to deeper soil layers.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 13,
+      "stores": [
+        "upper zone",
+        "lower zone",
+        "groundwater",
+        "deficit store",
+        "primary lower zone free water store",
+        "supplemental free water lower zone store"
+      ]
+    },
+    "represented_processes": [
+      "Impervious and direct runoff",
+      "Within soil division of water storage between tension and free water",
+      "Surface runoff, interflow and percolation to deeper soil layers",
+      "Multiple baseflow processes"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 13,
+      "parameter_names": [
+        "PCTIM",
+        "UZTWM",
+        "UZFWM",
+        "kuz",
+        "PBASE",
+        "ZPERC",
+        "REXP",
+        "LZTWM",
+        "LZFWPM",
+        "LZFWSM",
+        "PFREE",
+        "klzp",
+        "klzs"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "SACRAMENTO model",
+      "model ID 33",
+      "MARRMoT v2",
+      "A.33",
+      "m_33_sacramento_11p_5s",
+      "13 parameters",
+      "Impervious and direct runoff",
+      "Within soil division of water storage between tension and free water",
+      "Surface runoff, interflow and percolation to deeper soil layers",
+      "Multiple baseflow processes"
+    ],
+    "summary_for_retrieval": "SACRAMENTO model (model ID 33) in A.33 of MARRMoT v2 uses unspecified stores and 13 parameters; it represents Impervious and direct runoff; Within soil division of water storage between tension and free water.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "34",
+    "model_name": {
+      "display_name": "FLEX-IS",
+      "code_name": "m_34_flexis_12p_5s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.34",
+      "reference": "",
+      "figure": "Figure A.35"
+    },
+    "intro": "FLEX-IS is described in MARRMoT Appendix A.34. It has an unspecified number of stores and 12 parameters. It aims to represent Snow accumulation and melt; Interception by vegetation; Infiltration and saturation excess flow based on a distribution of different soil depths.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 12,
+      "stores": [
+        "unsaturated zone",
+        "saturated zone",
+        "soil moisture",
+        "snow storage",
+        "snow",
+        "interception",
+        "storage compared to maximum",
+        "and maximum",
+        "storage and maximum"
+      ]
+    },
+    "represented_processes": [
+      "Snow accumulation and melt",
+      "Interception by vegetation",
+      "Infiltration and saturation excess flow based on a distribution of different soil depths",
+      "A split between fast saturation excess flow and preferential recharge to a slow store",
+      "Percolation from the unsaturated zone to a slow runoff store"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 12,
+      "parameter_names": [
+        "TT",
+        "ddbf",
+        "Imax",
+        "URmax",
+        "β",
+        "Lp",
+        "Percmax",
+        "D",
+        "Nlag,f",
+        "Nlag,s",
+        "Kf",
+        "Ks"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "FLEX-IS",
+      "model ID 34",
+      "MARRMoT v2",
+      "A.34",
+      "m_34_flexis_12p_5s",
+      "12 parameters",
+      "Snow accumulation and melt",
+      "Interception by vegetation",
+      "Infiltration and saturation excess flow based on a distribution of different soil depths",
+      "A split between fast saturation excess flow and preferential recharge to a slow store",
+      "Percolation from the unsaturated zone to a slow runoff store"
+    ],
+    "summary_for_retrieval": "FLEX-IS (model ID 34) in A.34 of MARRMoT v2 uses unspecified stores and 12 parameters; it represents Snow accumulation and melt; Interception by vegetation.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "35",
+    "model_name": {
+      "display_name": "MOPEX-5",
+      "code_name": "m_35_mopex5_12p_5s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.35",
+      "reference": "",
+      "figure": "Figure A.36"
+    },
+    "intro": "MOPEX-5 is described in MARRMoT Appendix A.35. It has an unspecified number of stores and 12 parameters. It aims to represent Snow accumulation and melt; Time-varying interception and the impact of phenology on transpiration; Saturation excess flow.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 12,
+      "stores": [
+        "soil moisture",
+        "groundwater",
+        "routing store",
+        "root zone",
+        "fast flow routing reservoir",
+        "slow flow routing reservoir"
+      ]
+    },
+    "represented_processes": [
+      "Snow accumulation and melt",
+      "Time-varying interception and the impact of phenology on transpiration",
+      "Saturation excess flow",
+      "Infiltration to deeper soil layers",
+      "A split between fast and slow runoff"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 12,
+      "parameter_names": [
+        "Tcrit",
+        "ddb",
+        "Sb1",
+        "tw",
+        "Iα",
+        "Is",
+        "Tmin",
+        "Tmax",
+        "Sb2",
+        "tu",
+        "Se",
+        "tc"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "MOPEX-5",
+      "model ID 35",
+      "MARRMoT v2",
+      "A.35",
+      "m_35_mopex5_12p_5s",
+      "12 parameters",
+      "Snow accumulation and melt",
+      "Time-varying interception and the impact of phenology on transpiration",
+      "Saturation excess flow",
+      "Infiltration to deeper soil layers",
+      "A split between fast and slow runoff"
+    ],
+    "summary_for_retrieval": "MOPEX-5 (model ID 35) in A.35 of MARRMoT v2 uses unspecified stores and 12 parameters; it represents Snow accumulation and melt; Time-varying interception and the impact of phenology on transpiration.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "36",
+    "model_name": {
+      "display_name": "MODHYDROLOG",
+      "code_name": "m_36_modhydrolog_15p_5s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.36",
+      "reference": "",
+      "figure": "Figure A.37"
+    },
+    "intro": "MODHYDROLOG is described in MARRMoT Appendix A.36. It has an unspecified number of stores and 15 parameters. It aims to represent Interception by vegetation; Infiltration and infiltration excess flow; Depression storage and delayed infiltration.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 15,
+      "stores": [
+        "soil moisture",
+        "groundwater",
+        "soil moisture store",
+        "interception"
+      ]
+    },
+    "represented_processes": [
+      "Interception by vegetation",
+      "Infiltration and infiltration excess flow",
+      "Depression storage and delayed infiltration",
+      "Preferential groundwater recharge, interflow and saturation excess flow",
+      "Groundwater recharge resulting from filling up of soil moisture storage capacity",
+      "Water exchange between shallow and deep aquifers",
+      "Water exchange between aquifer and river channel"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 15,
+      "parameter_names": [
+        "INSC",
+        "COEFF",
+        "SQ",
+        "SMSC",
+        "SUB",
+        "CRAK",
+        "EM",
+        "DSC",
+        "ADS",
+        "MD",
+        "VCOND",
+        "DLEV",
+        "k1",
+        "k2",
+        "k3"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "MODHYDROLOG",
+      "model ID 36",
+      "MARRMoT v2",
+      "A.36",
+      "m_36_modhydrolog_15p_5s",
+      "15 parameters",
+      "Interception by vegetation",
+      "Infiltration and infiltration excess flow",
+      "Depression storage and delayed infiltration",
+      "Preferential groundwater recharge, interflow and saturation excess flow",
+      "Groundwater recharge resulting from filling up of soil moisture storage capacity",
+      "Water exchange between shallow and deep aquifers",
+      "Water exchange between aquifer and river channel"
+    ],
+    "summary_for_retrieval": "MODHYDROLOG (model ID 36) in A.36 of MARRMoT v2 uses unspecified stores and 15 parameters; it represents Interception by vegetation; Infiltration and infiltration excess flow.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "37",
+    "model_name": {
+      "display_name": "HBV-96",
+      "code_name": "m_37_hbv_15p_5s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.37",
+      "reference": "",
+      "figure": "Figure A.38"
+    },
+    "intro": "HBV-96 is described in MARRMoT Appendix A.37. It has an unspecified number of stores and 15 parameters. It aims to represent Snow accumulation, melt and refreezing; Infiltration and capillary flow to, and evaporation from, soil moisture; A non-linear storage-runoff relationship from the upper runoff-generating zone.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 15,
+      "stores": [
+        "unsaturated zone",
+        "saturated zone",
+        "upper zone",
+        "lower zone",
+        "soil moisture",
+        "snow storage",
+        "snow",
+        "storage sm and maximum"
+      ]
+    },
+    "represented_processes": [
+      "Snow accumulation, melt and refreezing",
+      "Infiltration and capillary flow to, and evaporation from, soil moisture",
+      "A non-linear storage-runoff relationship from the upper runoff-generating zone",
+      "A linear storage-runoff relationship from the lower runoff-generating zone"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 15,
+      "parameter_names": [
+        "TT",
+        "TTI",
+        "CFR",
+        "CFMAX",
+        "TTM",
+        "WHC",
+        "CFLUX",
+        "FC",
+        "LP",
+        "β",
+        "K0",
+        "α",
+        "c",
+        "K1",
+        "MAXBAS"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "HBV-96",
+      "model ID 37",
+      "MARRMoT v2",
+      "A.37",
+      "m_37_hbv_15p_5s",
+      "15 parameters",
+      "Snow accumulation, melt and refreezing",
+      "Infiltration and capillary flow to, and evaporation from, soil moisture",
+      "A non-linear storage-runoff relationship from the upper runoff-generating zone",
+      "A linear storage-runoff relationship from the lower runoff-generating zone"
+    ],
+    "summary_for_retrieval": "HBV-96 (model ID 37) in A.37 of MARRMoT v2 uses unspecified stores and 15 parameters; it represents Snow accumulation, melt and refreezing; Infiltration and capillary flow to, and evaporation from, soil moisture.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "38",
+    "model_name": {
+      "display_name": "Tank Model - SMA",
+      "code_name": "m_38_tank2_16p_5s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.38",
+      "reference": "",
+      "figure": "Figure A.39"
+    },
+    "intro": "Tank Model - SMA is described in MARRMoT Appendix A.38. It has an unspecified number of stores and 16 parameters. It aims to represent Runoff on increasing time scales with depth; Soil moisture storage; capillary rise to replenish soil moisture.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 16,
+      "stores": [
+        "upper zone",
+        "soil moisture",
+        "secondary soil moisture zone",
+        "intermediate zone",
+        "sub-base zone",
+        "base layer"
+      ]
+    },
+    "represented_processes": [
+      "Runoff on increasing time scales with depth",
+      "Soil moisture storage",
+      "capillary rise to replenish soil moisture"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 16,
+      "parameter_names": [
+        "sm1",
+        "sm2",
+        "k1",
+        "k2",
+        "A0",
+        "A1",
+        "A2",
+        "t1",
+        "t2",
+        "B0",
+        "B1",
+        "t3",
+        "C0",
+        "C1",
+        "t4",
+        "D1"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Tank Model - SMA",
+      "model ID 38",
+      "MARRMoT v2",
+      "A.38",
+      "m_38_tank2_16p_5s",
+      "16 parameters",
+      "Runoff on increasing time scales with depth",
+      "Soil moisture storage",
+      "capillary rise to replenish soil moisture"
+    ],
+    "summary_for_retrieval": "Tank Model - SMA (model ID 38) in A.38 of MARRMoT v2 uses unspecified stores and 16 parameters; it represents Runoff on increasing time scales with depth; Soil moisture storage.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "39",
+    "model_name": {
+      "display_name": "Midlands Catchment Runoff Model",
+      "code_name": "m_39_mcrm_16p_5s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.39",
+      "reference": "",
+      "figure": "Figure A.40"
+    },
+    "intro": "Midlands Catchment Runoff Model is described in MARRMoT Appendix A.39. It has an unspecified number of stores and 16 parameters. It aims to represent Interception by vegetation; Direct runoff from a variable contributing area; A deficit-based approach to soil moisture accounting and interflow and percolation.",
+    "origin": {
+      "study_context": "",
+      "region": "Midlands",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 16,
+      "stores": [
+        "soil moisture",
+        "groundwater",
+        "deficit store",
+        "interception",
+        "in-channel",
+        "out-of-channel"
+      ]
+    },
+    "represented_processes": [
+      "Interception by vegetation",
+      "Direct runoff from a variable contributing area",
+      "A deficit-based approach to soil moisture accounting and interflow and percolation",
+      "Baseflow from groundwater",
+      "Uniform flood flood wave distribution in time",
+      "In-channel and out-of-channel flood routing"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 16,
+      "parameter_names": [
+        "Smax",
+        "cmax",
+        "c0",
+        "c1",
+        "ce",
+        "Dsurp",
+        "kd",
+        "γd",
+        "qp,max",
+        "kg",
+        "τ",
+        "Sbf",
+        "kcr",
+        "γcr",
+        "kor",
+        "γor"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Midlands Catchment Runoff Model",
+      "model ID 39",
+      "MARRMoT v2",
+      "A.39",
+      "m_39_mcrm_16p_5s",
+      "Midlands",
+      "16 parameters",
+      "Interception by vegetation",
+      "Direct runoff from a variable contributing area",
+      "A deficit-based approach to soil moisture accounting and interflow and percolation",
+      "Baseflow from groundwater",
+      "Uniform flood flood wave distribution in time",
+      "In-channel and out-of-channel flood routing"
+    ],
+    "summary_for_retrieval": "Midlands Catchment Runoff Model (model ID 39) in A.39 of MARRMoT v2 uses unspecified stores and 16 parameters; it represents Interception by vegetation; Direct runoff from a variable contributing area.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "basic",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "40",
+    "model_name": {
+      "display_name": "SMAR",
+      "code_name": "m_40_smar_8p_6s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.40",
+      "reference": "",
+      "figure": "Figure A.41"
+    },
+    "intro": "SMAR is described in MARRMoT Appendix A.40. It has an unspecified number of stores and 8 parameters. It aims to represent Saturation excess overland flow; Infiltration excess overland flow; Gradual infiltration into soil moisture and declining evaporation potential when water is sourced from further underground.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 8,
+      "stores": [
+        "soil moisture",
+        "groundwater",
+        "upper soil layer",
+        "second soil layer"
+      ]
+    },
+    "represented_processes": [
+      "Saturation excess overland flow",
+      "Infiltration excess overland flow",
+      "Gradual infiltration into soil moisture and declining evaporation potential when water is sourced from further underground",
+      "Groundwater flow",
+      "Routing of non-groundwater flow"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 8,
+      "parameter_names": [
+        "H",
+        "Y",
+        "Smax",
+        "C",
+        "G",
+        "KG",
+        "N",
+        "K"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "SMAR",
+      "model ID 40",
+      "MARRMoT v2",
+      "A.40",
+      "m_40_smar_8p_6s",
+      "8 parameters",
+      "Saturation excess overland flow",
+      "Infiltration excess overland flow",
+      "Gradual infiltration into soil moisture and declining evaporation potential when water is sourced from further underground",
+      "Groundwater flow",
+      "Routing of non-groundwater flow"
+    ],
+    "summary_for_retrieval": "SMAR (model ID 40) in A.40 of MARRMoT v2 uses unspecified stores and 8 parameters; it represents Saturation excess overland flow; Infiltration excess overland flow.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "41",
+    "model_name": {
+      "display_name": "NAM model",
+      "code_name": "m_41_nam_10p_6s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.41",
+      "reference": "",
+      "figure": "Figure A.42"
+    },
+    "intro": "NAM model is described in MARRMoT Appendix A.41. It has an unspecified number of stores and 10 parameters. It aims to represent Snow accumulation and melt; Interflow when total soil moisture exceeds a threshold; Separation of saturation excess flow into overland flow and infiltration.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 10,
+      "stores": [
+        "upper zone",
+        "lower zone",
+        "soil moisture",
+        "groundwater",
+        "routing store",
+        "snow storage",
+        "overland flow routing store",
+        "interflow routing store",
+        "snow"
+      ]
+    },
+    "represented_processes": [
+      "Snow accumulation and melt",
+      "Interflow when total soil moisture exceeds a threshold",
+      "Separation of saturation excess flow into overland flow and infiltration",
+      "Baseflow from groundwater."
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 10,
+      "parameter_names": [
+        "Cs",
+        "Cif",
+        "L*",
+        "CL1",
+        "U*",
+        "Cof",
+        "CL2",
+        "K0",
+        "K1",
+        "Kb"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "NAM model",
+      "model ID 41",
+      "MARRMoT v2",
+      "A.41",
+      "m_41_nam_10p_6s",
+      "10 parameters",
+      "Snow accumulation and melt",
+      "Interflow when total soil moisture exceeds a threshold",
+      "Separation of saturation excess flow into overland flow and infiltration",
+      "Baseflow from groundwater."
+    ],
+    "summary_for_retrieval": "NAM model (model ID 41) in A.41 of MARRMoT v2 uses unspecified stores and 10 parameters; it represents Snow accumulation and melt; Interflow when total soil moisture exceeds a threshold.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "42",
+    "model_name": {
+      "display_name": "HYCYMODEL",
+      "code_name": "m_42_hycymodel_12p_6s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.42",
+      "reference": "",
+      "figure": "Figure A.43"
+    },
+    "intro": "HYCYMODEL is described in MARRMoT Appendix A.42. It has an unspecified number of stores and 12 parameters. It aims to represent Split between channel and ground precipitation; Interception by canopy and stems/trunks; Overland flow from a variable contributing area.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 12,
+      "stores": [
+        "upper zone",
+        "lower zone",
+        "routing store",
+        "hillslope routing store",
+        "channel routing store",
+        "canopy",
+        "stem and trunk"
+      ]
+    },
+    "represented_processes": [
+      "Split between channel and ground precipitation",
+      "Interception by canopy and stems/trunks",
+      "Overland flow from a variable contributing area",
+      "Non-linear channel flow, hillslope flow and baseflow",
+      "Channel evaporation"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 12,
+      "parameter_names": [
+        "C",
+        "I1,max",
+        "α",
+        "I2,max",
+        "kin",
+        "D50",
+        "D16",
+        "Sbc",
+        "kb",
+        "pb",
+        "kh",
+        "kc"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "HYCYMODEL",
+      "model ID 42",
+      "MARRMoT v2",
+      "A.42",
+      "m_42_hycymodel_12p_6s",
+      "12 parameters",
+      "Split between channel and ground precipitation",
+      "Interception by canopy and stems/trunks",
+      "Overland flow from a variable contributing area",
+      "Non-linear channel flow, hillslope flow and baseflow",
+      "Channel evaporation"
+    ],
+    "summary_for_retrieval": "HYCYMODEL (model ID 42) in A.42 of MARRMoT v2 uses unspecified stores and 12 parameters; it represents Split between channel and ground precipitation; Interception by canopy and stems/trunks.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "43",
+    "model_name": {
+      "display_name": "GSM-SOCONT model",
+      "code_name": "m_43_gsmsocont_12p_6s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.43",
+      "reference": "",
+      "figure": "Figure A.44"
+    },
+    "intro": "GSM-SOCONT model is described in MARRMoT Appendix A.43. It has an unspecified number of stores and 12 parameters. It aims to represent Separate treatment of glacier and non-glacier catchment area; Snow accumulation and melt; Glacier melt.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 12,
+      "stores": [
+        "soil moisture",
+        "snow pack",
+        "snow-water routing reservoir",
+        "ice-water routing reservoir",
+        "direct runoff reservoir"
+      ]
+    },
+    "represented_processes": [
+      "Separate treatment of glacier and non-glacier catchment area",
+      "Snow accumulation and melt",
+      "Glacier melt",
+      "Soil moisture accounting in the non-glacier catchment area"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 12,
+      "parameter_names": [
+        "fice",
+        "T0",
+        "asnow",
+        "Tm",
+        "ks",
+        "aice",
+        "ki",
+        "A",
+        "x",
+        "y",
+        "ksl",
+        "β"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "GSM-SOCONT model",
+      "model ID 43",
+      "MARRMoT v2",
+      "A.43",
+      "m_43_gsmsocont_12p_6s",
+      "12 parameters",
+      "Separate treatment of glacier and non-glacier catchment area",
+      "Snow accumulation and melt",
+      "Glacier melt",
+      "Soil moisture accounting in the non-glacier catchment area"
+    ],
+    "summary_for_retrieval": "GSM-SOCONT model (model ID 43) in A.43 of MARRMoT v2 uses unspecified stores and 12 parameters; it represents Separate treatment of glacier and non-glacier catchment area; Snow accumulation and melt.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "44",
+    "model_name": {
+      "display_name": "ECHO model",
+      "code_name": "m_44_echo_16p_6s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.44",
+      "reference": "",
+      "figure": "Figure A.45"
+    },
+    "intro": "ECHO model is described in MARRMoT Appendix A.44. It has an unspecified number of stores and 16 parameters. It aims to represent Interception by vegetation; Snowfall, snowmelt, ground-heat flux and storage and refreezing of liquid snow; Infiltration, infiltration excess and saturation excess.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 16,
+      "stores": [
+        "soil moisture",
+        "snow pack",
+        "soil moisture zone",
+        "fast runoff reservoir",
+        "slow runoff reservoir",
+        "interception"
+      ]
+    },
+    "represented_processes": [
+      "Interception by vegetation",
+      "Snowfall, snowmelt, ground-heat flux and storage and refreezing of liquid snow",
+      "Infiltration, infiltration excess and saturation excess",
+      "Fast and slow runoff"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 16,
+      "parameter_names": [
+        "ρ",
+        "Ts",
+        "Tm",
+        "as",
+        "af",
+        "Gmax",
+        "θ",
+        "φ",
+        "Smax",
+        "sw",
+        "sm",
+        "Ksat",
+        "c",
+        "Lmax",
+        "kf",
+        "ks"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "ECHO model",
+      "model ID 44",
+      "MARRMoT v2",
+      "A.44",
+      "m_44_echo_16p_6s",
+      "16 parameters",
+      "Interception by vegetation",
+      "Snowfall, snowmelt, ground-heat flux and storage and refreezing of liquid snow",
+      "Infiltration, infiltration excess and saturation excess",
+      "Fast and slow runoff"
+    ],
+    "summary_for_retrieval": "ECHO model (model ID 44) in A.44 of MARRMoT v2 uses unspecified stores and 16 parameters; it represents Interception by vegetation; Snowfall, snowmelt, ground-heat flux and storage and refreezing of liquid snow.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "45",
+    "model_name": {
+      "display_name": "Precipitation-Runoff Modelling System",
+      "code_name": "m_45_prms_18p_7s",
+      "aliases": [
+        "PRMS"
+      ]
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.45",
+      "reference": "",
+      "figure": "Figure A.46"
+    },
+    "intro": "Precipitation-Runoff Modelling System is described in MARRMoT Appendix A.45. It has an unspecified number of stores and 18 parameters. It aims to represent Snow accumulation and melt; Interception by vegetation; Depression storage and impervious surface areas.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 18,
+      "stores": [
+        "upper zone",
+        "lower zone",
+        "soil moisture",
+        "groundwater",
+        "snow storage",
+        "interception reservoir",
+        "upper soil moisture zone",
+        "lower soil moisture zone",
+        "runoff reservoir",
+        "snow",
+        "depression",
+        "storage and maximum"
+      ]
+    },
+    "represented_processes": [
+      "Snow accumulation and melt",
+      "Interception by vegetation",
+      "Depression storage and impervious surface areas",
+      "Direct runoff based on catchment saturation",
+      "Infiltration into soil moisture and connection with deeper groundwater",
+      "Potentially non-linear interflow, baseflow and groundwater sink"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 18,
+      "parameter_names": [
+        "TT",
+        "ddb",
+        "α",
+        "β",
+        "STOR",
+        "RETIP",
+        "SCN",
+        "SCX",
+        "REMX",
+        "SMAX",
+        "cgw",
+        "RESMAX",
+        "k1",
+        "k2",
+        "k3",
+        "k4",
+        "k5",
+        "k6"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Precipitation-Runoff Modelling System",
+      "model ID 45",
+      "MARRMoT v2",
+      "A.45",
+      "m_45_prms_18p_7s",
+      "18 parameters",
+      "Snow accumulation and melt",
+      "Interception by vegetation",
+      "Depression storage and impervious surface areas",
+      "Direct runoff based on catchment saturation",
+      "Infiltration into soil moisture and connection with deeper groundwater",
+      "Potentially non-linear interflow, baseflow and groundwater sink"
+    ],
+    "summary_for_retrieval": "Precipitation-Runoff Modelling System (model ID 45) in A.45 of MARRMoT v2 uses unspecified stores and 18 parameters; it represents Snow accumulation and melt; Interception by vegetation.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "46",
+    "model_name": {
+      "display_name": "Climate and Land-use Scenario Simulation in Catchments model",
+      "code_name": "m_46_classic_12p_8s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.46",
+      "reference": "",
+      "figure": "Figure A.47"
+    },
+    "intro": "Climate and Land-use Scenario Simulation in Catchments model is described in MARRMoT Appendix A.46. It has an unspecified number of stores and 12 parameters. It aims to represent Division into permeable, semi-permeable and impermeable areas; Infiltration into permeable soils and deficit-based soil moisture accounting; Infiltration into semi-permeable soils and direct runoff from semi-permeable soils (bypassing the moisture accounting).",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 12,
+      "stores": [
+        "soil moisture",
+        "routing store",
+        "upper per-",
+        "permeable soil routing store",
+        "upper semi-permeable layer",
+        "semi-permeable quick soil routing store",
+        "impermeable soil routing store"
+      ]
+    },
+    "represented_processes": [
+      "Division into permeable, semi-permeable and impermeable areas",
+      "Infiltration into permeable soils and deficit-based soil moisture accounting",
+      "Infiltration into semi-permeable soils and direct runoff from semi-permeable soils (bypassing the moisture accounting)",
+      "Fixed interception on impermeable soils",
+      "Linear flow routing from permeable soils",
+      "Fast and slow routing from semi-permeable soils",
+      "Linear flow routing from impermeable soils"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 12,
+      "parameter_names": [
+        "f_ap",
+        "f_dp",
+        "d_p",
+        "c_q",
+        "d_1",
+        "f_as",
+        "f_ds",
+        "d_s",
+        "d_2",
+        "c_xq",
+        "c_xs",
+        "c_u"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "Climate and Land-use Scenario Simulation in Catchments model",
+      "model ID 46",
+      "MARRMoT v2",
+      "A.46",
+      "m_46_classic_12p_8s",
+      "12 parameters",
+      "Division into permeable, semi-permeable and impermeable areas",
+      "Infiltration into permeable soils and deficit-based soil moisture accounting",
+      "Infiltration into semi-permeable soils and direct runoff from semi-permeable soils (bypassing the moisture accounting)",
+      "Fixed interception on impermeable soils",
+      "Linear flow routing from permeable soils",
+      "Fast and slow routing from semi-permeable soils",
+      "Linear flow routing from impermeable soils"
+    ],
+    "summary_for_retrieval": "Climate and Land-use Scenario Simulation in Catchments model (model ID 46) in A.46 of MARRMoT v2 uses unspecified stores and 12 parameters; it represents Division into permeable, semi-permeable and impermeable areas; Infiltration into permeable soils and deficit-based soil moisture accounting.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  },
+  {
+    "model_id": "47",
+    "model_name": {
+      "display_name": "IHM19 model",
+      "code_name": "m_46_classic_12p_8s",
+      "aliases": []
+    },
+    "source": {
+      "library": "Modular Assessment of Rainfall-Runoff Models Toolbox (MARRMoT) v2.- User manual — Appendices",
+      "section": "A.47",
+      "reference": "",
+      "figure": "Figure A.48"
+    },
+    "intro": "IHM19 model is described in MARRMoT Appendix A.47. It has an unspecified number of stores and 43 parameters. It aims to represent Interception; Separate macropore storage; Combined soil and vegetation evapotranspiration.",
+    "origin": {
+      "study_context": "",
+      "region": "",
+      "reference": ""
+    },
+    "model_structure": {
+      "number_of_stores": null,
+      "number_of_parameters": 43,
+      "stores": [
+        "soil moisture",
+        "groundwater",
+        "deficit store",
+        "interception",
+        "soil",
+        "relative"
+      ]
+    },
+    "represented_processes": [
+      "Interception",
+      "Separate macropore storage",
+      "Combined soil and vegetation evapotranspiration",
+      "Interflow when soil moisture exceeds storage capacity",
+      "Percolation to a lower soil storage with baseflow"
+    ],
+    "application_context": [],
+    "applicable_conditions": [],
+    "parameter_summary": {
+      "parameter_count": 43,
+      "parameter_names": [
+        "SIMAX",
+        "A",
+        "FF",
+        "SMPMAX",
+        "CQMP",
+        "XQMP",
+        "SS1MAX",
+        "FCCS1",
+        "CFS1",
+        "XFS1",
+        "CQS1",
+        "XQS1",
+        "SS2MAX",
+        "CQS2",
+        "XQS2",
+        "D0",
+        "Process",
+        "Abstraction",
+        "Baseflow",
+        "Capillaryrise",
+        "Depressionstorage",
+        "Evaporation",
+        "Exchange",
+        "Infiltration",
+        "Interception",
+        "Interflow",
+        "Misc",
+        "Percolation",
+        "Recharge",
+        "Routing",
+        "Saturationexcess",
+        "Snow",
+        "Soilmoisture",
+        "Filename",
+        "1:amounttoberouted",
+        "2:timebase",
+        "3:Δt",
+        "2:timebase(doubledinsidethefunction)",
+        "2:gammaparameter[-]",
+        "3:timeforflowtoreducebyfactore[d]",
+        "4:lengthoftimeseries",
+        "1:amounttobedelayed",
+        "2:timedelay"
+      ]
+    },
+    "notes": "Detailed formulas and parameter definitions are maintained outside this knowledge card.",
+    "keywords": [
+      "IHM19 model",
+      "model ID 47",
+      "MARRMoT v2",
+      "A.47",
+      "m_46_classic_12p_8s",
+      "43 parameters",
+      "Interception",
+      "Separate macropore storage",
+      "Combined soil and vegetation evapotranspiration",
+      "Interflow when soil moisture exceeds storage capacity",
+      "Percolation to a lower soil storage with baseflow"
+    ],
+    "summary_for_retrieval": "IHM19 model (model ID 47) in A.47 of MARRMoT v2 uses unspecified stores and 43 parameters; it represents Interception; Separate macropore storage.",
+    "knowledge_completeness": {
+      "intro": "good",
+      "origin": "missing",
+      "application": "missing",
+      "conditions": "missing"
+    }
+  }
+]

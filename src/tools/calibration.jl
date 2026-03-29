@@ -41,7 +41,9 @@ compute_metrics_tool = MCPTool(
             sim_vec = Float64.(sim_data[Symbol(sim_col)])
             obs_vec = Float64.(obs_data[Symbol(obs_col)])
 
-            metric_names = get(params, "metrics", String["NSE","KGE","LogNSE","LogKGE","PBIAS","R2","RMSE"])
+            metric_names = _normalize_metric_names(
+                get(params, "metrics", String["NSE", "KGE", "LogNSE", "LogKGE", "PBIAS", "R2", "RMSE", "MAE", "Bias"]),
+            )
             n = min(length(sim_vec), length(obs_vec))
             result = Metrics.compute_metrics(sim_vec[1:n], obs_vec[1:n], metric_names)
 
@@ -51,6 +53,31 @@ compute_metrics_tool = MCPTool(
         end
     end
 )
+
+function _normalize_metric_names(metric_names_input)
+    metric_names_input isa AbstractVector ||
+        throw(ArgumentError("metrics must be an array of strings"))
+
+    alias_map = Dict(
+        "NSE" => "NSE",
+        "KGE" => "KGE",
+        "LOGNSE" => "LogNSE",
+        "LOGKGE" => "LogKGE",
+        "PBIAS" => "PBIAS",
+        "R2" => "R2",
+        "RMSE" => "RMSE",
+        "MAE" => "MAE",
+        "BIAS" => "Bias",
+    )
+
+    normalized = String[]
+    for raw_name in metric_names_input
+        canonical = get(alias_map, uppercase(strip(string(raw_name))), string(raw_name))
+        push!(normalized, canonical)
+    end
+
+    return normalized
+end
 
 function _metric_candidates(role::String)
     role == "simulated" && return ["Result", "simulated", "simulation", "runoff", "Q"]
@@ -114,7 +141,10 @@ function _load_metric_series(source_like, role::String)
 end
 
 function _write_metrics_artifact(output_dir::String, base_name::String, payload::Dict{String,Any})
-    metrics_dir = joinpath(output_dir, "metrics")
+    normalized_output_dir = normpath(output_dir)
+    metrics_dir = lowercase(basename(normalized_output_dir)) == "metrics" ?
+                  normalized_output_dir :
+                  joinpath(normalized_output_dir, "metrics")
     mkpath(metrics_dir)
     timestamp = Dates.format(now(), "yyyymmddHHMMSS")
     output_path = joinpath(metrics_dir, "$(base_name)_metrics_$(timestamp).json")
@@ -160,7 +190,9 @@ compute_metrics_tool = MCPTool(
                 push!(warnings, "Series lengths differ; truncated to $n samples")
             end
 
-            metric_names = get(params, "metrics", String["NSE", "KGE", "RMSE", "PBIAS", "R2"])
+            metric_names = _normalize_metric_names(
+                get(params, "metrics", String["NSE", "KGE", "RMSE", "PBIAS", "R2", "MAE", "Bias"]),
+            )
             metric_values = Metrics.compute_metrics(sim_vec[1:n], obs_vec[1:n], metric_names)
 
             payload = Dict{String,Any}(

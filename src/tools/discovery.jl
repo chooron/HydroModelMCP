@@ -77,7 +77,7 @@ get_model_info_tool = MCPTool(
         !isnothing(validation_error) && return create_error_response(validation_error)
 
         info = Discovery.get_model_info(params["model"])
-        payload = Dict("status" => "success")
+        payload = Dict{String,Any}("status" => "success")
         merge!(payload, info)
         return create_json_response(payload)
     end,

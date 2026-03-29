@@ -2,7 +2,7 @@ module Metrics
 
 using ..Statistics
 
-export compute_metrics, nse, kge, kge_components, pbias, r_squared, rmse,
+export compute_metrics, nse, kge, kge_components, pbias, r_squared, rmse, mae, bias,
        weighted_metric, transform_data, inverse_transform_data
 
 # ==============================================================================
@@ -91,6 +91,26 @@ function rmse(sim::AbstractVector, obs::AbstractVector; log_transform::Bool=fals
     return sqrt(mean((s .- o) .^ 2))
 end
 
+"""
+    mae(sim, obs; log_transform=false) -> Float64
+
+平均绝对误差。最优值 = 0。
+"""
+function mae(sim::AbstractVector, obs::AbstractVector; log_transform::Bool=false)
+    s, o = _maybe_transform(sim, obs, log_transform)
+    return mean(abs.(s .- o))
+end
+
+"""
+    bias(sim, obs; log_transform=false) -> Float64
+
+平均偏差（sim - obs）。最优值 = 0。
+"""
+function bias(sim::AbstractVector, obs::AbstractVector; log_transform::Bool=false)
+    s, o = _maybe_transform(sim, obs, log_transform)
+    return mean(s .- o)
+end
+
 # ==============================================================================
 # 指标分发表
 # ==============================================================================
@@ -103,6 +123,8 @@ const METRIC_FUNCTIONS = Dict{String,Function}(
     "PBIAS"  => pbias,
     "R2"     => r_squared,
     "RMSE"   => rmse,
+    "MAE"    => mae,
+    "Bias"   => bias,
 )
 
 # ==============================================================================
@@ -115,7 +137,7 @@ const METRIC_FUNCTIONS = Dict{String,Function}(
 批量计算指标。自动检测是否建议 log 变换 (Strategy 3)。
 """
 function compute_metrics(sim::AbstractVector, obs::AbstractVector,
-                         metric_names::Vector{String}=String["NSE","KGE","PBIAS","RMSE","R2"])
+                         metric_names::Vector{String}=String["NSE","KGE","PBIAS","RMSE","R2","MAE","Bias"])
     results = Dict{String,Any}()
 
     for name in metric_names

@@ -296,6 +296,7 @@ or:
 ### Key behaviors
 
 - Lists files only, not directory contents recursively
+- Auto-creates the requested directory when it is missing and returns `created_directory: true`
 - Rejects paths outside the current workspace root
 
 ---

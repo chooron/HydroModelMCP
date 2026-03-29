@@ -18,11 +18,72 @@ Use this skill as a workspace executor, not as a data-discovery skill.
 - Keep the interaction minimal: ask for the model only if the user did not name one.
 - Do not read raw CSV contents into the conversation when MCP can consume file paths directly.
 - If parameters are not supplied, allow MCP to generate a random parameter set and label the run as exploratory.
+- Do not use model resource URIs such as hydro://models/<model_name>/info, hydro://models/<model_name>/parameters, or hydro://models/<model_name>/variables. Resolve model metadata through tools only.
 
 Read these references when needed:
 - `references/workspace-execution-workflow.md`
 - `references/mcp-minimum-contract.md`
 - `references/actual-tool-contracts.md`
+
+## resources, templates, and prompts in this mcp service
+
+### read-only resources available
+
+- `hydro://models/catalog` for compact model browsing and preferred discovery-tool hints
+- `hydro://guides/model-discovery` for model-browsing and tool-vs-resource guidance
+- `hydro://guides/algorithms` for calibration algorithm selection guidance
+- `hydro://guides/objectives` for objective-function selection guidance
+- `hydro://guides/metrics` for metric behavior and direction hints
+- `hydro://guides/data-handles` for deciding between file paths and reusable handles
+- `hydro://guides/runoff-workspace` for workspace defaults and execution order
+- `hydro://guides/result-artifacts` for `./result` layout and stored-result notes
+- `hydro://meta/resource-templates` for template metadata and server behavior notes
+- `hydro://calibration/results` for stored calibration result identifiers
+- `hydro://sensitivity/results` for stored sensitivity result identifiers
+- `hydro://ensemble/results` for stored ensemble result identifiers
+
+Resource usage rules for this skill:
+- treat resources as optional context, not as the main execution path
+- keep model-detail access tool-first: `find_model`, `get_model_info`, `get_model_parameters`, `get_model_variables`
+- do not replace model resolution with `resources/list` or `resources/read`
+
+### resource template policy
+
+Declared templates in the current service:
+- `hydro://calibration/results/{result_id}`
+- `hydro://sensitivity/results/{result_id}`
+
+Execution policy:
+- treat template URIs as capability metadata unless a concrete `resources/read` call succeeds
+- do not promise historical-result retrieval through template URIs by default
+- if a user asks for a historical result, first check IDs from `hydro://calibration/results`, then report the current retrieval limitation when no reliable read path exists
+
+### prompt usage (optional)
+
+Available MCP prompt:
+- `hydrology_expert_review` with required `task` and optional `context`
+
+When to use it:
+- use only when the user asks for expert critique, method justification, or risk review
+- do not block a requested simulation run on prompt invocation
+
+Recommended English prompt payload:
+
+```json
+{
+  "name": "hydrology_expert_review",
+  "arguments": {
+    "task": "Review whether this exploratory runoff simulation is decision-ready.",
+    "context": "Model: exphydro; forcing: ./data/forcing.csv; observed discharge: unavailable; warnings: alias mapping was applied."
+  }
+}
+```
+
+Expected response focus:
+1. key assumptions and uncertainties
+2. recommended workflow or tool sequence
+3. critical parameter and data checks
+4. risks that may invalidate conclusions
 
 ## Interaction pattern
 
@@ -59,6 +120,8 @@ Use tools in this order:
 2. `list_models` only if the match is empty or ambiguous
 3. `get_model_info`
 4. `get_model_parameters`
+
+Do not substitute model-resolution steps with `resources/list` or `resources/read`.
 
 ### 3) resolve workspace data
 

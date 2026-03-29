@@ -12,7 +12,7 @@ const METRICS_SCHEMA = Dict{String,Any}(
     "description" => "评价指标列表",
     "items" => Dict{String,Any}(
         "type" => "string",
-        "enum" => ["NSE", "KGE", "LogNSE", "LogKGE", "RMSE", "R2", "PBIAS"]
+        "enum" => ["NSE", "KGE", "LogNSE", "LogKGE", "RMSE", "R2", "PBIAS", "MAE", "Bias"]
     ),
     "default" => ["NSE", "KGE", "RMSE"]
 )

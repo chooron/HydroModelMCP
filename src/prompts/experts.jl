@@ -6,18 +6,19 @@ export hydro_expert_prompt
 
 const hydro_expert_prompt = MCPPrompt(
     name = "hydrology_expert_review",
+    title = "Hydrology Expert Review",
     description = "Structured guidance for hydrological model selection, simulation, calibration, and validation.",
     arguments = [
         PromptArgument(
             name = "task",
             description = "The hydrology task to perform or review.",
-            required = true
+            required = true,
         ),
         PromptArgument(
             name = "context",
             description = "Optional basin, data, or model context.",
-            required = false
-        )
+            required = false,
+        ),
     ],
     messages = [
         PromptMessage(
@@ -37,10 +38,10 @@ Respond with:
 2. A recommended workflow or tool sequence.
 3. Important parameter, data, or diagnostic checks.
 4. Risks that could invalidate the result.
-"""
-            )
-        )
-    ]
+""",
+            ),
+        ),
+    ],
 )
 
 end # module Experts

@@ -1,11 +1,13 @@
 # Current Service Gaps
 
-## Result storage and retrieval are incomplete
+## Result storage and retrieval are only partially dynamic
 
-- `hydro://calibration/results/{result_id}` and `hydro://sensitivity/results/{result_id}` are declared as templates.
-- Only `hydro://calibration/results` is actually registered as a resource.
-- `Storage.load_result` exists in core storage code, but no MCP tool exposes it.
-- `run_ensemble_parameters` is the only tool that currently writes to storage.
+- `hydro://models/{model_name}/...` templates are metadata only by design; model details are intentionally fetched through unified tools on demand.
+- Stored-result templates are also declared as metadata.
+- Exact stored-result resources for IDs already present at startup can be registered.
+- Newly created stored results do not automatically appear as readable resources until the server rebuilds its resource registry.
+- `Storage.load_result` is used by resource providers, but there is still no dedicated MCP tool that fetches an arbitrary stored result ID on demand.
+- `run_ensemble_parameters` is still the only tool that currently writes to storage.
 
 ## Multi-objective diagnostics are only half exposed
 

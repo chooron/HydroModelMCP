@@ -42,9 +42,12 @@ include("core/ensemble.jl")
 include("core/validation.jl")
 
 include("resources/models.jl")
+include("resources/algorithms.jl")
 include("resources/calibration.jl")
 include("resources/parameters.jl")
 include("resources/templates.jl")
+include("resources/workspace.jl")
+include("mcp_resource_templates.jl")
 
 include("tools/helpers.jl")
 include("tools/data_loading.jl")
@@ -57,6 +60,7 @@ include("tools/ensemble.jl")
 include("tools/validation.jl")
 
 include("prompts/experts.jl")
+include("prompts/workflows.jl")
 
 const SERVER_NAME = "hydro-model-agent-interface"
 const SERVER_VERSION = "0.1.0"
@@ -122,19 +126,28 @@ const ALL_TOOLS = MCPTool[
 ]
 
 const ALL_PROMPTS = MCPPrompt[
-    Experts.hydro_expert_prompt
+    Experts.hydro_expert_prompt,
+    Workflows.runoff_workspace_prompt,
+    Workflows.calibration_workflow_prompt,
+    Workflows.result_review_prompt,
 ]
 
 function build_resources(storage_backend = STORAGE_BACKEND)
-    resources = MCPResource[
-        model_catalog_resource,
-        algorithm_guide_resource,
-        objective_guide_resource,
-        resource_templates_resource,
-    ]
+    resources = MCPResource[]
 
     append!(resources, create_model_resources())
-    append!(resources, create_calibration_resources(storage_backend))
+    append!(resources, create_model_knowledge_resources())
+    append!(resources, MCPResource[
+        algorithm_guide_resource,
+        objective_guide_resource,
+        metrics_guide_resource,
+        data_handle_guide_resource,
+        runoff_workspace_guide_resource,
+        result_artifact_guide_resource,
+        resource_templates_resource,
+    ])
+
+    append!(resources, create_storage_resources(storage_backend))
 
     return resources
 end
@@ -155,6 +168,9 @@ function build_server(;
         resources = resources,
         prompts = ALL_PROMPTS
     )
+
+    server.resource_templates = copy(ALL_RESOURCE_TEMPLATES)
+    register_resource_template_providers!(server, build_resource_template_providers(storage_backend))
 
     if !isnothing(transport)
         server.transport = transport
@@ -195,7 +211,7 @@ function run_http_server(;
     start!(server)
 end
 
-export ALL_PROMPTS, ALL_RESOURCES, ALL_TOOLS
+export ALL_PROMPTS, ALL_RESOURCES, ALL_RESOURCE_TEMPLATES, ALL_TOOLS
 export STORAGE_BACKEND, build_resources, build_server, build_storage_backend
 export run_http_server, run_server
 

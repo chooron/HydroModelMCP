@@ -1,4 +1,5 @@
 using JSON3
+using UUIDs
 using .HydroModelMCP
 
 function _workspace_payload(response)
@@ -26,6 +27,25 @@ end
 
         @test occursin("Error:", response.text)
         @test occursin("escapes workspace root", response.text)
+    end
+
+    @testset "auto create missing workspace directory" begin
+        rel_dir = joinpath("result", "workspace-list-autocreate-" * string(uuid4()))
+        abs_dir = HydroModelMCP.resolve_workspace_path(rel_dir)
+
+        ispath(abs_dir) && rm(abs_dir; recursive = true, force = true)
+
+        payload = _workspace_payload(HydroModelMCP.list_workspace_files_tool.handler(Dict(
+            "directory" => rel_dir,
+            "extensions" => ["csv"],
+        )))
+
+        @test payload["status"] == "success"
+        @test payload["created_directory"] == true
+        @test payload["count"] == 0
+        @test isdir(abs_dir)
+
+        rm(abs_dir; recursive = true, force = true)
     end
 
     @testset "clear session cache removes intermediate handles" begin

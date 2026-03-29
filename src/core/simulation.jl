@@ -172,17 +172,55 @@ function _component_vector_from_params(model, params_input)
     throw(ArgumentError("params must be an object or array"))
 end
 
-function _random_params(model_name::String, model; seed::Union{Nothing,Int} = nothing)
+function _random_params(model_name::String, model_module, model; seed::Union{Nothing,Int} = nothing)
     if !isnothing(seed)
         Random.seed!(seed)
     end
 
-    params_vec = HydroModelLibrary.get_random_params(model_name)
-    param_names = HydroModels.get_param_names(model)
-    params_used = Dict{String,Float64}()
-    for pname in param_names
-        params_used[string(pname)] = Float64(params_vec.params[pname])
+    wrapper_params = try
+        Base.invokelatest(getproperty, model_module, :model_parameters)
+    catch err
+        if err isa UndefVarError
+            throw(ArgumentError(
+                "Random parameter generation failed for model '$model_name': wrapper does not expose model_parameters",
+            ))
+        end
+        rethrow(err)
     end
+
+    bounds_by_name = Dict{Symbol,Tuple{Float64,Float64}}()
+    for param in wrapper_params
+        raw_bounds = try
+            Base.invokelatest(HydroModels.getbounds, param)
+        catch
+            nothing
+        end
+
+        isnothing(raw_bounds) && continue
+        bounds_by_name[Symbol(string(param))] = (Float64(raw_bounds[1]), Float64(raw_bounds[2]))
+    end
+
+    param_names = Tuple(HydroModels.get_param_names(model))
+    sampled_values = Vector{Float64}(undef, length(param_names))
+    params_used = Dict{String,Float64}()
+
+    for (idx, pname) in enumerate(param_names)
+        haskey(bounds_by_name, pname) ||
+            throw(ArgumentError(
+                "Random parameter generation failed for model '$model_name': missing bounds for parameter '$(pname)'",
+            ))
+
+        lo, hi = bounds_by_name[pname]
+        lo <= hi || throw(ArgumentError(
+            "Invalid parameter bounds for model '$model_name', parameter '$(pname)': lower bound $lo is greater than upper bound $hi",
+        ))
+
+        value = lo == hi ? lo : lo + (hi - lo) * rand()
+        sampled_values[idx] = value
+        params_used[string(pname)] = value
+    end
+
+    params_vec = ComponentVector(; params = NamedTuple{param_names}(Tuple(sampled_values)))
     return params_vec, params_used
 end
 
@@ -228,7 +266,7 @@ function run_simulation(args::AbstractDict)
     model_name == "nothing" && throw(ArgumentError("Missing model name"))
 
     forcing_config = _forcing_config(args)
-    canonical_model_name, _model_module, model = _load_model(model_name)
+    canonical_model_name, model_module, model = _load_model(model_name)
     source_type = Symbol(lowercase(string(forcing_config["source_type"])))
     forcing_data, forcing_metadata = DataLoader.load_data(Val(source_type), forcing_config)
 
@@ -240,7 +278,7 @@ function run_simulation(args::AbstractDict)
         (haskey(args, "random_seed") ? Int(args["random_seed"]) : nothing)
 
     params_vec, params_used, params_source = if isnothing(params_input)
-        generated_params, used = _random_params(canonical_model_name, model; seed = seed)
+        generated_params, used = _random_params(canonical_model_name, model_module, model; seed = seed)
         generated_params, used, "random"
     else
         provided = _component_vector_from_params(model, params_input)

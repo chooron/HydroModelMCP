@@ -39,18 +39,30 @@
 ## Resources exposed by the repository
 
 - `hydro://models/catalog`
+- `hydro://guides/model-discovery`
 - `hydro://guides/algorithms`
 - `hydro://guides/objectives`
+- `hydro://guides/metrics`
+- `hydro://guides/data-handles`
+- `hydro://guides/runoff-workspace`
+- `hydro://guides/result-artifacts`
 - `hydro://meta/resource-templates`
 - `hydro://calibration/results`
-- Exact per-model resources:
-  - `hydro://models/<model_name>/info`
-  - `hydro://models/<model_name>/parameters`
-  - `hydro://models/<model_name>/variables`
+- `hydro://sensitivity/results`
+- `hydro://ensemble/results`
+
+### Exact resource families that may exist
+
+- `hydro://calibration/results/<result_id>` for IDs already present in storage
+- `hydro://sensitivity/results/<result_id>` for IDs already present in storage
+- `hydro://ensemble/results/<result_id>` for IDs already present in storage
 
 ## Prompt exposed by the repository
 
 - `hydrology_expert_review`
+- `runoff_workspace_workflow`
+- `calibration_workflow_plan`
+- `hydrology_result_review`
 
 ## Fast workflow recipes
 
@@ -86,4 +98,4 @@
 
 - `load_hydro_csv` is the most practical entry point for local CSV-driven workflows in this repository.
 - `sensitivity_analysis` and `calibrate_model` both support `data_handle`, which avoids repeated payload transfer.
-- The repo advertises more result-template URIs than it can currently read back. Treat stored-result workflows cautiously.
+- Model templates are discoverability metadata only; use the unified discovery tools for on-demand model details. Stored-result resources may exist for IDs already present at startup, but newly created results still require a server rebuild or restart before they appear as resources.

@@ -88,15 +88,34 @@ end
                 "path" => source_file,
             ),
             "output_dir" => result_dir,
+            "metrics" => JSON3.read("[\"KGE\",\"NSE\",\"RMSE\",\"MAE\",\"Bias\"]"),
         )))
 
         @test payload["status"] == "success"
         @test payload["metrics"] isa Dict
         @test haskey(payload["metrics"], "NSE")
         @test haskey(payload["metrics"], "KGE")
+        @test haskey(payload["metrics"], "MAE")
+        @test haskey(payload["metrics"], "Bias")
         @test payload["sample_size"] > 0
         @test isfile(payload["output_path"])
         @test any(occursin("Inferred simulated column", String(w)) for w in payload["warnings"])
         @test any(occursin("Inferred observed column", String(w)) for w in payload["warnings"])
+
+        metrics_dir_payload = _parse_tool_json(HydroModelMCP.compute_metrics_tool.handler(Dict(
+            "simulated" => Dict(
+                "source_type" => "csv",
+                "path" => simulation_payload["output_path"],
+            ),
+            "observed" => Dict(
+                "source_type" => "csv",
+                "path" => source_file,
+            ),
+            "output_dir" => joinpath(result_dir, "metrics"),
+            "metrics" => JSON3.read("[\"NSE\"]"),
+        )))
+
+        metrics_output_path = String(metrics_dir_payload["output_path"])
+        @test !occursin("metrics\\metrics", lowercase(metrics_output_path))
     end
 end
