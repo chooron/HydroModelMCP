@@ -1,0 +1,11 @@
+interface:
+  display_name: Runoff Forecast
+  short_description: Execute one workspace runoff run through MCP using ./data inputs
+    and ./result outputs
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

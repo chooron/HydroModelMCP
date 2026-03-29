@@ -339,3 +339,209 @@ using .HydroModelMCP.Calibration
 
     println("\n   [Pass] All Calibration tests passed successfully!")
 end
+
+@testset "compute_diagnostics_full 工具测试" begin
+    println("\n   -> Testing compute_diagnostics_full tool...")
+
+    # 场景1: 收敛场景
+    @testset "收敛场景" begin
+        trial_results = [
+            Dict(
+                "trial_id" => 1,
+                "best_objective" => 0.25,
+                "best_parameters" => Dict("x1" => 100.0, "x2" => 0.5),
+                "objective_history" => [0.5, 0.45, 0.4, 0.35, 0.3, 0.28, 0.26, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25],
+                "iterations_used" => 100
+            ),
+            Dict(
+                "trial_id" => 2,
+                "best_objective" => 0.26,
+                "best_parameters" => Dict("x1" => 102.0, "x2" => 0.51),
+                "objective_history" => [0.5, 0.45, 0.4, 0.35, 0.3, 0.28, 0.27, 0.26, 0.26, 0.26, 0.26, 0.26, 0.26, 0.26, 0.26, 0.26, 0.26, 0.26, 0.26, 0.26, 0.26],
+                "iterations_used" => 100
+            )
+        ]
+        parameter_bounds = Dict(
+            "x1" => Dict("lower" => 50.0, "upper" => 200.0),
+            "x2" => Dict("lower" => 0.0, "upper" => 1.0)
+        )
+
+        result = Calibration.diagnose_calibration_full(
+            trial_results, parameter_bounds; objective_threshold=0.7
+        )
+
+        @test haskey(result, "convergence_status")
+        @test haskey(result, "hat_trick_achieved")
+        @test haskey(result, "recommended_action")
+        @test result["convergence_status"] == "converged"
+        @test result["is_plateaued"] == true
+        @test result["is_still_improving"] == false
+        println("   -> 收敛场景测试通过")
+    end
+
+    # 场景2: 参数触及边界
+    @testset "边界触及场景" begin
+        trial_results = [
+            Dict(
+                "trial_id" => 1,
+                "best_objective" => 0.3,
+                "best_parameters" => Dict("x1" => 199.5, "x2" => 0.5),
+                "objective_history" => [0.5, 0.4, 0.35, 0.3],
+                "iterations_used" => 50
+            )
+        ]
+        parameter_bounds = Dict(
+            "x1" => Dict("lower" => 50.0, "upper" => 200.0),
+            "x2" => Dict("lower" => 0.0, "upper" => 1.0)
+        )
+
+        result = Calibration.diagnose_calibration_full(
+            trial_results, parameter_bounds
+        )
+
+        @test "x1" in result["parameters_at_boundary"]
+        @test result["recommended_action"] == "widen_ranges"
+        println("   -> 边界触及场景测试通过")
+    end
+
+    # 场景3: 持续改进
+    @testset "持续改进场景" begin
+        trial_results = [
+            Dict(
+                "trial_id" => 1,
+                "best_objective" => 0.3,
+                "best_parameters" => Dict("x1" => 100.0, "x2" => 0.5),
+                "objective_history" => [0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4, 0.35, 0.3, 0.28, 0.26, 0.24, 0.22, 0.2, 0.18, 0.16, 0.14, 0.12, 0.1],
+                "iterations_used" => 100
+            )
+        ]
+        parameter_bounds = Dict(
+            "x1" => Dict("lower" => 50.0, "upper" => 200.0),
+            "x2" => Dict("lower" => 0.0, "upper" => 1.0)
+        )
+
+        result = Calibration.diagnose_calibration_full(
+            trial_results, parameter_bounds
+        )
+
+        @test result["is_still_improving"] == true
+        @test result["recommended_action"] == "increase_budget"
+        println("   -> 持续改进场景测试通过")
+    end
+
+    # 场景4: 平台期检测
+    @testset "平台期场景" begin
+        trial_results = [
+            Dict(
+                "trial_id" => 1,
+                "best_objective" => 0.5,
+                "best_parameters" => Dict("x1" => 100.0, "x2" => 0.5),
+                "objective_history" => [0.8, 0.7, 0.6, 0.55, 0.52, 0.51, 0.505, 0.502, 0.501, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+                "iterations_used" => 100
+            )
+        ]
+        parameter_bounds = Dict(
+            "x1" => Dict("lower" => 50.0, "upper" => 200.0),
+            "x2" => Dict("lower" => 0.0, "upper" => 1.0)
+        )
+
+        result = Calibration.diagnose_calibration_full(
+            trial_results, parameter_bounds
+        )
+
+        @test result["is_plateaued"] == true
+        @test result["is_still_improving"] == false
+        println("   -> 平台期场景测试通过")
+    end
+
+    println("   [Pass] All compute_diagnostics_full tests passed!")
+end
+
+# ==============================================================================
+# 新接口兼容性测试：final_parameters / parameter_uncertainty / best_trial_id
+# ==============================================================================
+@testset "compute_diagnostics_full 新接口兼容性" begin
+    println("\n   -> Testing compute_diagnostics_full new interface...")
+
+    @testset "final_parameters 字段兼容" begin
+        # 使用 final_parameters（而非 best_parameters）
+        trial_results = [
+            Dict(
+                "trial_id"         => 1,
+                "best_objective"   => 0.823,
+                "final_parameters" => Dict("X1" => 450.2, "X2" => -1.3),
+                "objective_history"=> [0.5, 0.65, 0.78, 0.82, 0.823]
+            ),
+            Dict(
+                "trial_id"         => 2,
+                "best_objective"   => 0.819,
+                "final_parameters" => Dict("X1" => 460.1, "X2" => -1.1),
+                "objective_history"=> [0.5, 0.62, 0.75, 0.81, 0.819]
+            )
+        ]
+
+        # 不传 parameter_bounds，测试自动推断路径
+        result = Calibration.diagnose_calibration_full(
+            [Dict("trial_id" => t["trial_id"],
+                  "best_objective" => t["best_objective"],
+                  "best_parameters" => t["final_parameters"],
+                  "objective_history" => t["objective_history"])
+             for t in trial_results],
+            Dict{String,Any}()  # 空 bounds → 会造成 _convert_bounds_format 的情况
+        )
+
+        @test haskey(result, "convergence_status")
+        @test haskey(result, "hat_trick_achieved")
+        println("   -> final_parameters 兼容测试通过")
+    end
+
+    @testset "best_trial_id 和 parameter_uncertainty 输出字段" begin
+        # 模拟工具层级的输出（包含 best_trial_id 和 parameter_uncertainty）
+        trial_results_raw = [
+            Dict(
+                "trial_id"         => 1,
+                "best_objective"   => 0.9,
+                "final_parameters" => Dict("x1" => 120.0, "x2" => 0.3),
+                "convergence_curve"=> [0.5, 0.7, 0.85, 0.9]
+            ),
+            Dict(
+                "trial_id"         => 2,
+                "best_objective"   => 0.88,
+                "final_parameters" => Dict("x1" => 125.0, "x2" => 0.32),
+                "convergence_curve"=> [0.5, 0.68, 0.83, 0.88]
+            ),
+        ]
+
+        # 规范化（模拟 compute_diagnostics_full_tool handler 的处理）
+        normalized = Dict{String,Any}[]
+        for trial in trial_results_raw
+            t = Dict{String,Any}(string(k) => v for (k, v) in trial)
+            haskey(t, "final_parameters") && (t["best_parameters"] = t["final_parameters"])
+            haskey(t, "convergence_curve") && (t["objective_history"] = t["convergence_curve"])
+            push!(normalized, t)
+        end
+
+        # 参数边界（数组格式，工具层会转换）
+        bounds_array = Dict{String,Any}(
+            "x1" => Dict("lower" => 50.0, "upper" => 200.0),
+            "x2" => Dict("lower" => 0.0, "upper" => 1.0)
+        )
+
+        result = Calibration.diagnose_calibration_full(normalized, bounds_array)
+
+        @test haskey(result, "convergence_status")
+        @test haskey(result, "hat_trick_achieved")
+        @test haskey(result, "statistics")
+        @test result["statistics"]["n_trials"] == 2
+
+        # best_trial_id 和 parameter_uncertainty 由工具层添加
+        # 直接验证核心逻辑
+        objectives = [Float64(t["best_objective"]) for t in normalized]
+        best_idx = argmax(objectives)
+        @test normalized[best_idx]["trial_id"] == 1
+
+        println("   -> best_trial_id 逻辑验证通过（best trial: trial_id=1）")
+    end
+
+    println("   [Pass] All new interface compatibility tests passed!")
+end

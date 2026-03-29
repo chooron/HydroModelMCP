@@ -1,10 +1,12 @@
-using Pkg
-Pkg.activate(@__DIR__) # 激活当前环境
+project_file = normpath(joinpath(@__DIR__, "Project.toml"))
+active_project = something(Base.active_project(), "")
+
+if normpath(active_project) != project_file
+    @warn "HydroModelMCP should usually be started with --project=$(abspath(@__DIR__)). Falling back to Pkg.activate because the active project does not match."
+    import Pkg
+    Pkg.activate(@__DIR__)
+end
+
 using HydroModelMCP
 
-# stdio 传输模式启动
-# 适用于命令行工具和 MCP Inspector
-# 使用方式: npx @modelcontextprotocol/inspector julia --project=. start.jl
-println("🚀 正在启动 HydroModelMCP 服务 (stdio 模式)...")
 HydroModelMCP.run_server()
-

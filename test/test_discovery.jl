@@ -53,12 +53,12 @@ using .HydroModelMCP.Discovery
 
         # 检查返回结构
         @test info isa Dict
-        @test info["model_name"] == "hbv" # 应该返回标准名
+        @test info["model"] == "hbv" # 应该返回标准名
 
         # 检查元数据是否提取成功
         @test "P" in info["inputs"]
         @test "SM" in info["states"]
-        @test "TT" in info["params"]
+        @test info["parameter_count"] > 0
         @test "Qt" in info["outputs"]
 
         # 2. 测试不存在的模型 (应报错)
@@ -100,17 +100,16 @@ using .HydroModelMCP.Discovery
             first_param = params_info[1]
             @test first_param isa Dict
             @test haskey(first_param, "name")
-            @test haskey(first_param, "bounds")
+            @test haskey(first_param, "min")
+            @test haskey(first_param, "max")
             @test first_param["type"] == "parameter"
 
-            # 关键测试：Bounds 必须是 JSON 友好的 Vector (即 [min, max])，不能是 Tuple
-            if !isnothing(first_param["bounds"])
-                @test first_param["bounds"] isa Vector
-                @test length(first_param["bounds"]) == 2
-                @test first_param["bounds"][1] <= first_param["bounds"][2] # min <= max
+            # 关键测试：边界应拆成 min / max 字段
+            if !(isnothing(first_param["min"]) || isnothing(first_param["max"]))
+                @test first_param["min"] <= first_param["max"] # min <= max
             end
 
-            println("      Found parameter: $(first_param["name"]) -> Bounds: $(first_param["bounds"])")
+            println("      Found parameter: $(first_param["name"]) -> Bounds: $(first_param["min"]), $(first_param["max"])")
         end
     end
 end

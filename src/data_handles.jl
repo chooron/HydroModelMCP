@@ -1,139 +1,204 @@
 """
-Data handle management for HydroModelMCP.
+Session-scoped data handle management for HydroModelMCP.
 
-Provides a global data storage system where Julia stores large arrays
-and Python only passes lightweight handle references.
-
-This prevents large data transmission across the Python/Julia boundary.
+Intermediate tool state is stored in a transient cache so tools can exchange
+large payloads without writing temporary files. Redis is preferred when
+available; otherwise the cache falls back to in-process memory.
 """
 
-# Global data storage
-const DATA_STORE = Dict{String, Any}()
+using Base64
+using Serialization
 
-"""
-    store_data(handle::String, data::Any) -> String
+const DATA_STORE = Dict{String,Any}()
+const SESSION_CACHE_MODE = lowercase(get(ENV, "HYDRO_SESSION_CACHE_BACKEND", "auto"))
+const SESSION_CACHE_HOST = get(ENV, "REDIS_HOST", "127.0.0.1")
+const SESSION_CACHE_PORT = try
+    parse(Int, get(ENV, "REDIS_PORT", "6379"))
+catch
+    6379
+end
+const SESSION_CACHE_TTL = try
+    parse(Int, get(ENV, "HYDRO_SESSION_CACHE_TTL", "86400"))
+catch
+    86400
+end
+const SESSION_CACHE_PREFIX = get(
+    ENV,
+    "HYDRO_SESSION_CACHE_PREFIX",
+    "hydro:session:" * string(UUIDs.uuid4()) * ":",
+)
+const SESSION_CACHE_BACKEND = Ref{Symbol}(:uninitialized)
 
-Store data in the global data store and return the handle.
+function _redis_connection()
+    return RedisConnection(host = SESSION_CACHE_HOST, port = SESSION_CACHE_PORT)
+end
 
-# Arguments
-- `handle::String`: Unique identifier for the data
-- `data::Any`: Data to store (typically arrays, time series, etc.)
+function _detect_session_cache_backend()
+    SESSION_CACHE_MODE in ("auto", "memory", "redis") ||
+        throw(ArgumentError("HYDRO_SESSION_CACHE_BACKEND must be one of: auto, memory, redis"))
 
-# Returns
-- `String`: The handle (same as input)
+    if SESSION_CACHE_MODE == "memory"
+        return :memory
+    end
 
-# Example
-```julia
-handle = store_data("camels_5362000_streamflow", [1.0, 2.0, 3.0])
-```
-"""
+    try
+        conn = _redis_connection()
+        disconnect(conn)
+        return :redis
+    catch err
+        SESSION_CACHE_MODE == "redis" &&
+            @warn "Redis session cache unavailable; falling back to memory" exception = (err, catch_backtrace())
+        return :memory
+    end
+end
+
+function session_cache_backend()
+    if SESSION_CACHE_BACKEND[] == :uninitialized
+        SESSION_CACHE_BACKEND[] = _detect_session_cache_backend()
+    end
+    return SESSION_CACHE_BACKEND[]
+end
+
+session_cache_prefix() = SESSION_CACHE_PREFIX
+
+function session_cache_info()
+    info = Dict{String,Any}(
+        "backend" => string(session_cache_backend()),
+        "prefix" => session_cache_prefix(),
+    )
+
+    if session_cache_backend() == :redis
+        info["host"] = SESSION_CACHE_HOST
+        info["port"] = SESSION_CACHE_PORT
+        info["ttl_seconds"] = SESSION_CACHE_TTL
+    end
+
+    return info
+end
+
+_session_cache_key(handle::String) = session_cache_prefix() * handle
+
+function _serialize_cache_value(data::Any)
+    io = IOBuffer()
+    Serialization.serialize(io, data)
+    return base64encode(take!(io))
+end
+
+function _deserialize_cache_value(payload::AbstractString)
+    bytes = base64decode(payload)
+    return Serialization.deserialize(IOBuffer(bytes))
+end
+
 function store_data(handle::String, data::Any)
+    if session_cache_backend() == :redis
+        conn = _redis_connection()
+        try
+            key = _session_cache_key(handle)
+            payload = _serialize_cache_value(data)
+            if SESSION_CACHE_TTL > 0
+                setex(conn, key, SESSION_CACHE_TTL, payload)
+            else
+                set(conn, key, payload)
+            end
+        finally
+            disconnect(conn)
+        end
+        return handle
+    end
+
     DATA_STORE[handle] = data
     return handle
 end
 
-"""
-    get_data(handle::String) -> Any
-
-Retrieve data from the global data store.
-
-# Arguments
-- `handle::String`: Data handle identifier
-
-# Returns
-- `Any`: The stored data
-
-# Throws
-- `ErrorException`: If handle not found
-
-# Example
-```julia
-data = get_data("camels_5362000_streamflow")
-```
-"""
 function get_data(handle::String)
+    if session_cache_backend() == :redis
+        conn = _redis_connection()
+        try
+            payload = get(conn, _session_cache_key(handle))
+            isnothing(payload) && error("Data handle not found: $handle")
+            return _deserialize_cache_value(payload)
+        finally
+            disconnect(conn)
+        end
+    end
+
     haskey(DATA_STORE, handle) || error("Data handle not found: $handle")
     return DATA_STORE[handle]
 end
 
-"""
-    has_data(handle::String) -> Bool
-
-Check if a data handle exists in the store.
-
-# Arguments
-- `handle::String`: Data handle identifier
-
-# Returns
-- `Bool`: true if handle exists, false otherwise
-"""
 function has_data(handle::String)
+    if session_cache_backend() == :redis
+        conn = _redis_connection()
+        try
+            return !isnothing(get(conn, _session_cache_key(handle)))
+        finally
+            disconnect(conn)
+        end
+    end
+
     return haskey(DATA_STORE, handle)
 end
 
-"""
-    clear_data(handle::String) -> Bool
-
-Remove data from the global data store.
-
-# Arguments
-- `handle::String`: Data handle identifier
-
-# Returns
-- `Bool`: true if data was removed, false if handle didn't exist
-"""
 function clear_data(handle::String)
-    if haskey(DATA_STORE, handle)
-        delete!(DATA_STORE, handle)
-        return true
+    removed = false
+
+    if session_cache_backend() == :redis
+        conn = _redis_connection()
+        try
+            removed = del(conn, _session_cache_key(handle)) > 0
+        finally
+            disconnect(conn)
+        end
+    else
+        removed = pop!(DATA_STORE, handle, nothing) !== nothing
     end
-    return false
+
+    return removed
 end
 
-"""
-    clear_all_data!()
-
-Clear all data from the global data store.
-Useful for cleanup or testing.
-"""
 function clear_all_data!()
+    cleared_count = 0
+
+    if session_cache_backend() == :redis
+        conn = _redis_connection()
+        try
+            keys_list = keys(conn, session_cache_prefix() * "*")
+            for key in keys_list
+                cleared_count += del(conn, key)
+            end
+        finally
+            disconnect(conn)
+        end
+    end
+
+    cleared_count += length(DATA_STORE)
     empty!(DATA_STORE)
-    return nothing
+    return cleared_count
 end
 
-"""
-    list_handles() -> Vector{String}
-
-List all data handles currently in the store.
-
-# Returns
-- `Vector{String}`: Array of handle identifiers
-"""
 function list_handles()
-    return collect(keys(DATA_STORE))
+    if session_cache_backend() == :redis
+        conn = _redis_connection()
+        try
+            prefix = session_cache_prefix()
+            keys_list = keys(conn, prefix * "*")
+            return sort!(String[key[length(prefix)+1:end] for key in keys_list])
+        finally
+            disconnect(conn)
+        end
+    end
+
+    return sort!(collect(keys(DATA_STORE)))
 end
 
-"""
-    get_data_info(handle::String) -> Dict
-
-Get information about stored data without retrieving it.
-
-# Arguments
-- `handle::String`: Data handle identifier
-
-# Returns
-- `Dict`: Information about the data (type, size, etc.)
-"""
 function get_data_info(handle::String)
-    haskey(DATA_STORE, handle) || error("Data handle not found: $handle")
-    data = DATA_STORE[handle]
-
-    info = Dict{String, Any}(
+    data = get_data(handle)
+    info = Dict{String,Any}(
         "handle" => handle,
-        "type" => string(typeof(data))
+        "type" => string(typeof(data)),
+        "cache_backend" => string(session_cache_backend()),
     )
 
-    # Add size information for arrays
     if data isa AbstractArray
         info["size"] = size(data)
         info["length"] = length(data)

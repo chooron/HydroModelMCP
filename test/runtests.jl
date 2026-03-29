@@ -7,6 +7,10 @@ using StatsBase  # for Histogram in test_sampling.jl
 include("../src/HydroModelMCP.jl")
 
 @testset "test HydroModelMCP" begin
+    @testset "test server assembly" begin
+        include("test_server_assembly.jl")
+    end
+
     @testset "test model discovery" begin
         include("test_discovery.jl")
     end
@@ -35,7 +39,11 @@ include("../src/HydroModelMCP.jl")
         include("test_ensemble.jl")
     end
 
-    # @testset "test model simulation" begin
-    #     include("test_simulation.jl")
-    # end
+    @testset "test model simulation" begin
+        include("test_simulation.jl")
+    end
+
+    @testset "test workspace helpers" begin
+        include("test_workspace.jl")
+    end
 end

@@ -13,7 +13,7 @@ using ..Metrics
 using ..Sampling
 using ..Simulation: _execute_core
 
-export calibrate_model, calibrate_multiobjective, diagnose_calibration, diagnose_multiobjective
+export calibrate_model, calibrate_multiobjective, diagnose_calibration, diagnose_multiobjective, diagnose_calibration_full
 
 # ==============================================================================
 # 辅助：加载模型并提取参数信息
@@ -681,6 +681,211 @@ function diagnose_multiobjective(result::Dict{String,Any})
     )
 
     diagnostics["recommendations"] = recommendations
+    return diagnostics
+end
+
+# ==============================================================================
+# 完整诊断分析 (Strategy 10 增强版)
+# ==============================================================================
+
+"""转换参数边界格式：从嵌套对象到数组"""
+function _convert_bounds_format(parameter_bounds::Dict)
+    bounds = Dict{String,Vector{Float64}}()
+    for (pname, bound_dict) in parameter_bounds
+        if bound_dict isa Dict
+            bounds[pname] = [Float64(bound_dict["lower"]), Float64(bound_dict["upper"])]
+        else
+            bounds[pname] = Float64.(bound_dict)
+        end
+    end
+    return bounds
+end
+
+"""平台期检测：分析目标函数历史"""
+function _detect_plateau(objective_history::Vector{Float64}; window::Int=10, threshold::Float64=0.01)
+    if length(objective_history) < window
+        return false, 0.0
+    end
+
+    recent = objective_history[end-window+1:end]
+    best_val = minimum(recent)
+    worst_val = maximum(recent)
+    improvement_rate = abs(worst_val - best_val) / (abs(worst_val) + 1e-10)
+
+    return improvement_rate < threshold, improvement_rate
+end
+
+"""持续改进检测：比较最近和之前的改进"""
+function _is_still_improving(objective_history::Vector{Float64}; window::Int=10, threshold::Float64=0.01)
+    if length(objective_history) < 2 * window
+        return true
+    end
+
+    recent = objective_history[end-window+1:end]
+    previous = objective_history[end-2*window+1:end-window]
+
+    recent_best = minimum(recent)
+    previous_best = minimum(previous)
+
+    improvement = abs(previous_best - recent_best) / (abs(previous_best) + 1e-10)
+    return improvement > threshold
+end
+
+"""推荐动作决策逻辑"""
+function _recommend_action(diagnostics::Dict{String,Any})
+    if diagnostics["hat_trick_achieved"]
+        return "converged", "校准已达到最佳状态：收敛一致、参数未触边界、目标函数已收敛"
+    end
+
+    if !isempty(diagnostics["parameters_at_boundary"])
+        params_str = join(diagnostics["parameters_at_boundary"], ", ")
+        return "widen_ranges", "参数 $params_str 触及边界，建议扩大其取值范围"
+    end
+
+    if diagnostics["convergence_status"] != "converged"
+        cv = diagnostics["objective_spread"]
+        return "increase_budget", "多次试验结果差异较大 (CV=$(round(cv, digits=4)))，建议增加 maxiters 或 n_trials"
+    end
+
+    if diagnostics["is_still_improving"]
+        return "increase_budget", "目标函数仍在持续改进，建议增加迭代次数"
+    end
+
+    if diagnostics["is_plateaued"] && !diagnostics["hat_trick_achieved"]
+        return "restart", "目标函数已停滞但未达到理想状态，建议重新开始或尝试其他算法"
+    end
+
+    return "converged", "校准质量可接受"
+end
+
+"""
+    diagnose_calibration_full(trial_results, parameter_bounds; kwargs...) -> Dict
+
+完整的校准诊断分析（Strategy 10增强版）。
+
+# 参数
+- `trial_results`: 试验结果列表，每个包含 best_objective, best_parameters, objective_history
+- `parameter_bounds`: 参数边界字典 {"param": {"lower": x, "upper": y}}
+- `objective_threshold`: 好拟合阈值（默认0.7，表示目标<0.3为好拟合）
+- `boundary_tolerance`: 边界容差（默认0.01）
+- `convergence_threshold`: 收敛阈值（默认0.1）
+- `plateau_window`: 平台期检测窗口（默认10）
+
+# 返回
+包含以下字段的字典：
+- convergence_status: "converged", "improving", "plateaued"
+- objective_spread: 目标函数变异系数
+- parameters_at_boundary: 触及边界的参数列表
+- is_plateaued: 是否进入平台期
+- is_still_improving: 是否仍在改进
+- hat_trick_achieved: 是否达成Hat-trick
+- recommended_action: 推荐操作
+- reasoning: 推理解释
+- statistics: 统计信息
+"""
+function diagnose_calibration_full(trial_results::Vector,
+                                   parameter_bounds::Dict;
+                                   objective_threshold::Float64=0.7,
+                                   boundary_tolerance::Float64=0.01,
+                                   convergence_threshold::Float64=0.1,
+                                   plateau_window::Int=10)
+
+    if isempty(trial_results)
+        throw(ArgumentError("trial_results 不能为空"))
+    end
+
+    diagnostics = Dict{String,Any}()
+
+    # 转换参数边界格式
+    bounds = _convert_bounds_format(parameter_bounds)
+
+    # 1. 统计计算
+    objectives = [Float64(t["best_objective"]) for t in trial_results]
+    mean_obj = mean(objectives)
+    std_obj = std(objectives)
+    cv_obj = abs(mean_obj) > 1e-10 ? std_obj / abs(mean_obj) : std_obj
+
+    diagnostics["statistics"] = Dict{String,Any}(
+        "mean_objective" => mean_obj,
+        "std_objective" => std_obj,
+        "cv_objective" => cv_obj,
+        "min_objective" => minimum(objectives),
+        "max_objective" => maximum(objectives),
+        "n_trials" => length(objectives)
+    )
+
+    # 2. 收敛性分析
+    if length(trial_results) > 1
+        if cv_obj < convergence_threshold
+            diagnostics["convergence_status"] = "converged"
+        else
+            diagnostics["convergence_status"] = "improving"
+        end
+    else
+        diagnostics["convergence_status"] = "single_trial"
+    end
+
+    diagnostics["objective_spread"] = cv_obj
+
+    # 3. 参数边界检查
+    params_at_boundary = String[]
+    for trial in trial_results
+        best_params = trial["best_parameters"]
+        for (pname, value) in best_params
+            if haskey(bounds, pname)
+                bound = bounds[pname]
+                lower, upper = bound[1], bound[2]
+                range_size = upper - lower
+                tol = boundary_tolerance * range_size
+
+                if abs(Float64(value) - lower) < tol || abs(Float64(value) - upper) < tol
+                    if !(pname in params_at_boundary)
+                        push!(params_at_boundary, pname)
+                    end
+                end
+            end
+        end
+    end
+    diagnostics["parameters_at_boundary"] = params_at_boundary
+
+    # 4. 平台期和持续改进检测
+    is_plateaued = false
+    is_still_improving = false
+
+    for trial in trial_results
+        if haskey(trial, "objective_history")
+            history = Float64.(trial["objective_history"])
+            if !isempty(history)
+                plateaued, _ = _detect_plateau(history; window=plateau_window)
+                improving = _is_still_improving(history; window=plateau_window)
+
+                if plateaued
+                    is_plateaued = true
+                end
+                if improving
+                    is_still_improving = true
+                end
+            end
+        end
+    end
+
+    diagnostics["is_plateaued"] = is_plateaued
+    diagnostics["is_still_improving"] = is_still_improving
+
+    # 5. Hat-trick检查
+    model_fit_good = mean_obj < (1.0 - objective_threshold)
+    objectives_consistent = cv_obj < convergence_threshold
+    no_boundary_hit = isempty(params_at_boundary)
+    converged = is_plateaued && !is_still_improving
+
+    hat_trick = model_fit_good && objectives_consistent && no_boundary_hit && converged
+    diagnostics["hat_trick_achieved"] = hat_trick
+
+    # 6. 推荐动作
+    action, reasoning = _recommend_action(diagnostics)
+    diagnostics["recommended_action"] = action
+    diagnostics["reasoning"] = reasoning
+
     return diagnostics
 end
 

@@ -1,262 +1,326 @@
 module Simulation
 
-using ..DataLoader
-using ..HydroModels
-using ..HydroModelLibrary
 using ..ComponentArrays
 using ..DataInterpolations
-using ..DataInterpolations: LinearInterpolation, ConstantInterpolation
+using ..DataInterpolations: ConstantInterpolation, LinearInterpolation
+using ..DataLoader
+using ..Dates
+using ..HydroModelLibrary
+using ..HydroModels
+using ..Random
 using ..Statistics
+using ..UUIDs
 
-# ==============================================================================
-# 1. 求解器与插值器配置 (Multiple Dispatch)
-# ==============================================================================
+const DEFAULT_INPUT_ALIASES = Dict(
+    "P" => ["P", "prcp(mm/day)", "precipitation", "precip", "precip_mm_day"],
+    "T" => ["T", "tmean(C)", "temperature", "temp", "mean_temperature"],
+    "Ep" => ["Ep", "pet(mm)", "pet", "etp", "evapotranspiration"],
+)
 
-# 使用 Val 进行派发，零运行时开销，且易于扩展
 _resolve_solver(::Val{:ODE}) = HydroModels.ODESolver
 _resolve_solver(::Val{:DISCRETE}) = HydroModels.DiscreteSolver
 _resolve_solver(::Val{:MUTABLE}) = HydroModels.MutableSolver
 _resolve_solver(::Val{:IMMUTABLE}) = HydroModels.ImmutableSolver
-_resolve_solver(::Val{T}) where T = throw(ArgumentError("未实现的求解器类型: $T"))
+_resolve_solver(::Val{T}) where {T} = throw(ArgumentError("Unsupported solver: $T"))
 
 _resolve_interpolator(::Val{:LINEAR}) = Val(LinearInterpolation)
 _resolve_interpolator(::Val{:CONSTANT}) = Val(ConstantInterpolation)
 _resolve_interpolator(::Val{:DIRECT}) = Val(HydroModels.DirectInterpolation)
-_resolve_interpolator(::Val{T}) where T = throw(ArgumentError("未实现的插值器类型: $T"))
-
-# ==============================================================================
-# 2. 对外接口
-# ==============================================================================
-
-# ==============================================================================
-# 3. 核心计算逻辑
-# ==============================================================================
+_resolve_interpolator(::Val{T}) where {T} = throw(ArgumentError("Unsupported interpolation: $T"))
 
 function _execute_core(
-    model::M, forcing_nt::NamedTuple,
-    params_vec::ComponentVector, init_states::ComponentVector,
-    solver_sym::Symbol, interp_sym::Symbol, config_dict::AbstractDict
-) where M
-    # --- D. 数据对齐 ---
+    model::M,
+    forcing_nt::NamedTuple,
+    params_vec::ComponentVector,
+    init_states,
+    solver_sym::Symbol,
+    interp_sym::Symbol,
+    config_dict::AbstractDict,
+) where {M}
     input_names = HydroModels.get_input_names(model)
-    # 检查缺失变量
     missing_vars = setdiff(input_names, keys(forcing_nt))
     if !isempty(missing_vars)
-        throw(ArgumentError("输入数据缺失变量: $missing_vars"))
+        throw(ArgumentError("Missing forcing inputs: $(join(string.(missing_vars), ", "))"))
     end
-    # 构建矩阵 (Vars x Time)
-    input_matrix = stack([Float64.(forcing_nt[n]) for n in input_names], dims=1)
 
-    # --- E. 模拟执行 ---
+    input_matrix = stack([Float64.(forcing_nt[name]) for name in input_names], dims = 1)
     hydro_config = HydroModels.HydroConfig(
-        solver=_resolve_solver(Val(solver_sym)),
-        interpolator=_resolve_interpolator(Val(interp_sym))
+        solver = _resolve_solver(Val(solver_sym)),
+        interpolator = _resolve_interpolator(Val(interp_sym)),
     )
 
-    result_matrix = model(
-        input_matrix,
-        params_vec;
-        initstates=init_states,
-        config=hydro_config
-    )
+    result_matrix = if isnothing(init_states)
+        model(
+            input_matrix,
+            params_vec;
+            config = hydro_config,
+        )
+    else
+        model(
+            input_matrix,
+            params_vec;
+            initstates = init_states,
+            config = hydro_config,
+        )
+    end
 
-    # --- F. 结果提取策略 ---
-    # 如果没指定，默认返回最后一列 (通常是 Q/Runoff)
     output_names = HydroModels.get_output_names(model)
     target_var = get(config_dict, "output_variable", nothing)
 
-    out_vector = if !isnothing(target_var)
-        idx = findfirst(==(Symbol(target_var)), output_names)
-        if isnothing(idx)
-            throw(ArgumentError("输出变量 '$target_var' 不存在于模型输出中"))
-        end
-        result_matrix[idx, :]
-    else
+    output_vector = if isnothing(target_var)
         result_matrix[end, :]
+    else
+        idx = findfirst(==(Symbol(target_var)), output_names)
+        isnothing(idx) && throw(ArgumentError("Output variable '$target_var' was not found"))
+        result_matrix[idx, :]
     end
 
-    return out_vector
+    return collect(Float64.(output_vector))
 end
 
-"""
-    run_simulation(args::AbstractDict)
+function _load_model(model_name::String)
+    available_models = String.(HydroModelLibrary.AVAILABLE_MODELS)
+    idx = findfirst(candidate -> lowercase(candidate) == lowercase(strip(model_name)), available_models)
+    isnothing(idx) && throw(ArgumentError("Model '$model_name' was not found"))
 
-MCP Tool 入口。
-"""
+    canonical = available_models[idx]
+    model_module = HydroModelLibrary.load_model(Symbol(canonical), reload = false)
+    model = Base.invokelatest(wrapper -> wrapper.model, model_module)
+    return canonical, model_module, model
+end
+
+function _normalize_input_mapping(mapping)
+    if isnothing(mapping)
+        return nothing
+    elseif mapping isa AbstractDict
+        return Dict{String,String}(string(k) => string(v) for (k, v) in pairs(mapping))
+    end
+    throw(ArgumentError("input_mapping must be an object"))
+end
+
+function _resolve_input_source(
+    target::Symbol,
+    available_keys::Vector{String},
+    input_mapping::Union{Nothing,Dict{String,String}},
+)
+    target_name = string(target)
+
+    if !isnothing(input_mapping)
+        if haskey(input_mapping, target_name)
+            return input_mapping[target_name], false
+        end
+        for (source_name, mapped_target) in input_mapping
+            if mapped_target == target_name
+                return source_name, false
+            end
+        end
+    end
+
+    aliases = get(DEFAULT_INPUT_ALIASES, target_name, [target_name])
+    for alias in aliases
+        alias in available_keys && return alias, alias != target_name
+    end
+
+    return nothing, false
+end
+
+function _normalize_forcing_data(
+    forcing_data::NamedTuple,
+    model,
+    input_mapping::Union{Nothing,Dict{String,String}},
+)
+    available = Dict{String,Vector{Float64}}(
+        string(name) => collect(Float64.(forcing_data[name]))
+        for name in keys(forcing_data)
+    )
+    input_names = Tuple(HydroModels.get_input_names(model))
+    normalized_values = Vector{Vector{Float64}}(undef, length(input_names))
+    warnings = String[]
+
+    for (idx, target_name) in enumerate(input_names)
+        source_name, inferred = _resolve_input_source(target_name, collect(keys(available)), input_mapping)
+        isnothing(source_name) &&
+            throw(ArgumentError("Could not resolve forcing column for model input '$(target_name)'"))
+
+        normalized_values[idx] = available[source_name]
+        if inferred
+            push!(warnings, "Mapped input $(target_name) from forcing column '$source_name'")
+        end
+    end
+
+    normalized = NamedTuple{input_names}(Tuple(normalized_values))
+    return normalized, warnings
+end
+
+function _component_vector_from_params(model, params_input)
+    param_names = Tuple(HydroModels.get_param_names(model))
+
+    if params_input isa AbstractDict
+        values = Float64[]
+        for pname in param_names
+            key = string(pname)
+            haskey(params_input, key) || throw(ArgumentError("Missing parameter '$key'"))
+            push!(values, Float64(params_input[key]))
+        end
+        return ComponentVector(; params = NamedTuple{param_names}(Tuple(values)))
+    elseif params_input isa AbstractVector
+        length(params_input) == length(param_names) ||
+            throw(ArgumentError("Parameter vector length does not match model parameter count"))
+        return ComponentVector(; params = NamedTuple{param_names}(Tuple(Float64.(params_input))))
+    end
+
+    throw(ArgumentError("params must be an object or array"))
+end
+
+function _random_params(model_name::String, model; seed::Union{Nothing,Int} = nothing)
+    if !isnothing(seed)
+        Random.seed!(seed)
+    end
+
+    params_vec = HydroModelLibrary.get_random_params(model_name)
+    param_names = HydroModels.get_param_names(model)
+    params_used = Dict{String,Float64}()
+    for pname in param_names
+        params_used[string(pname)] = Float64(params_vec.params[pname])
+    end
+    return params_vec, params_used
+end
+
+function _build_init_states(model, init_states_input)
+    state_names = Tuple(HydroModels.get_state_names(model))
+    isempty(state_names) && return nothing
+
+    values = if isnothing(init_states_input)
+        zeros(length(state_names))
+    elseif init_states_input isa AbstractDict
+        [Float64(get(init_states_input, string(state), 0.0)) for state in state_names]
+    else
+        throw(ArgumentError("init_states must be an object"))
+    end
+
+    return ComponentVector(NamedTuple{state_names}(Tuple(values)))
+end
+
+function _forcing_config(args::AbstractDict)
+    if haskey(args, "forcing")
+        return args["forcing"]
+    end
+
+    config = Dict{String,Any}()
+    for key in ("source_type", "path", "key", "data", "host", "port")
+        haskey(args, key) && (config[key] = args[key])
+    end
+    isempty(config) && throw(ArgumentError("Missing forcing configuration"))
+    return config
+end
+
+function _normalize_output_dir(output_dir)
+    if output_dir === nothing
+        return nothing
+    elseif output_dir isa String
+        return output_dir
+    end
+    return string(output_dir)
+end
+
 function run_simulation(args::AbstractDict)
-    # 1. 提取必需参数
-    model_name = get(args, "model_name", nothing)
-    # --- A. 模型加载 ---
-    # 假设 load_model 返回包含 .model, .model_parameters 等信息的模块
-    model_module = HydroModelLibrary.load_model(Symbol(model_name), reload=false)
+    model_name = string(get(args, "model_name", get(args, "model", nothing)))
+    model_name == "nothing" && throw(ArgumentError("Missing model name"))
 
-    # 使用 invokelatest 调用它
-    model = Base.invokelatest(m -> m.model, model_module)
+    forcing_config = _forcing_config(args)
+    canonical_model_name, _model_module, model = _load_model(model_name)
+    source_type = Symbol(lowercase(string(forcing_config["source_type"])))
+    forcing_data, forcing_metadata = DataLoader.load_data(Val(source_type), forcing_config)
 
-    forcing_config = get(args, "forcing", nothing)
+    input_mapping = _normalize_input_mapping(get(args, "input_mapping", nothing))
+    normalized_forcing, mapping_warnings = _normalize_forcing_data(forcing_data, model, input_mapping)
 
-    if isnothing(model_name) || isnothing(forcing_config)
-        throw(ArgumentError("必须提供 model_name 和 forcing"))
-    end
+    params_input = get(args, "params", nothing)
+    seed = haskey(args, "seed") ? Int(args["seed"]) :
+        (haskey(args, "random_seed") ? Int(args["random_seed"]) : nothing)
 
-    # 2. 提取可选配置 (用于后续派发)
-    # 默认为 ODE 和 LINEAR
-    solver_sym = Symbol(uppercase(get(args, "solver", "DISCRETE")))
-    interp_sym = Symbol(uppercase(get(args, "interpolator", "LINEAR")))
-
-    config_dict = get(args, "config", Dict()) # 用于 output 变量选择等
-
-    # --- B. 参数处理 (可选参数逻辑) ---
-    params_vec = if haskey(args, "params")
-        (; params=NamedTuple(Symbol(k) => v for (k, v) in args["params"])[
-            HydroModels.get_param_names(model)
-        ]) |> ComponentVector
+    params_vec, params_used, params_source = if isnothing(params_input)
+        generated_params, used = _random_params(canonical_model_name, model; seed = seed)
+        generated_params, used, "random"
     else
-        HydroModelLibrary.get_random_params(model_name)
+        provided = _component_vector_from_params(model, params_input)
+        used = Dict{String,Float64}()
+        for pname in HydroModels.get_param_names(model)
+            used[string(pname)] = Float64(provided.params[pname])
+        end
+        provided, used, "provided"
     end
 
-    # --- C. 状态初始化 (可选状态逻辑) ---
-    state_names = HydroModels.get_state_names(model)
-    init_states = if haskey(args, "init_states") && !isempty(state_names)
-        # 如果用户提供了状态字典
-        user_states = args["init_states"]
-        # 匹配状态名，缺失的补0
-        vals = [get(user_states, String(s), 0.0) for s in state_names]
-        ComponentVector(NamedTuple{Tuple(state_names)}(vals))
+    init_states = _build_init_states(model, get(args, "init_states", nothing))
+    solver_sym = Symbol(uppercase(string(get(args, "solver", "DISCRETE"))))
+    interp_sym = Symbol(uppercase(string(get(args, "interpolation", get(args, "interpolator", "LINEAR")))))
+    config_dict = if haskey(args, "config") && args["config"] isa AbstractDict
+        Dict{String,Any}(string(k) => v for (k, v) in pairs(args["config"]))
     else
-        # 默认全0初始化
-        ComponentVector(NamedTuple{Tuple(state_names)}(zeros(length(state_names))))
+        Dict{String,Any}()
     end
 
-    # 3. 闭包封装核心逻辑
-    # 我们把 params, model_name 等封装起来，传给 DataLoader.process_io
-    # 这样 DataLoader 负责 I/O，这个匿名函数负责纯计算
-    core_task = (data) -> _execute_core(
+    warnings = copy(mapping_warnings)
+    for optional_key in ("period", "warmup")
+        haskey(args, optional_key) && push!(warnings, "Field '$optional_key' is recorded but not applied by the current simulation core")
+    end
+
+    t_start = time()
+    result_vector = _execute_core(
         model,
-        data,
+        normalized_forcing,
         params_vec,
         init_states,
         solver_sym,
         interp_sym,
-        config_dict
+        config_dict,
+    )
+    runtime_seconds = round(time() - t_start; digits = 3)
+
+    run_id = string(UUIDs.uuid4())
+    timestamp = Dates.format(now(), "yyyymmddHHMMSS")
+    output_dir = _normalize_output_dir(get(args, "output_dir", nothing))
+
+    artifact_payload = Dict{String,Any}(
+        "status" => "success",
+        "run_id" => run_id,
+        "warnings" => warnings,
+        "params_used" => params_used,
+        "params_source" => params_source,
+        "params_seed" => seed,
+        "run_info" => Dict(
+            "model" => canonical_model_name,
+            "solver" => string(solver_sym),
+            "interpolation" => string(interp_sym),
+            "runtime_seconds" => runtime_seconds,
+            "period" => get(args, "period", nothing),
+            "warmup" => get(args, "warmup", nothing),
+        ),
     )
 
-    # 4. 委托给 DataLoader 处理输入输出的多态性
-    return DataLoader.process_io(core_task, forcing_config)
+    save_context = (
+        output_dir = output_dir,
+        timestamp = timestamp,
+        run_id = run_id,
+        run_info = artifact_payload["run_info"],
+        artifact_payload = artifact_payload,
+        warnings = warnings,
+        params_used = params_used,
+        params_source = params_source,
+        params_seed = seed,
+        base_name = get(args, "base_name", nothing),
+    )
+
+    result = DataLoader.save_data(Val(source_type), result_vector, DataLoader._merge_metadata(forcing_metadata, save_context))
+    result["status"] = "success"
+    result["run_id"] = run_id
+    result["warnings"] = warnings
+    result["run_info"] = artifact_payload["run_info"]
+    result["model"] = canonical_model_name
+    result["params_used"] = params_used
+    result["params_source"] = params_source
+    result["params_seed"] = seed
+    return result
 end
-
-using ModelContextProtocol
-using JSON3
-using ..Simulation # 引用之前写好的业务模块
-
-# 定义 run_simulation 工具
-run_simulation_tool = MCPTool(
-    name = "run_simulation",
-    description = "执行水文模型模拟。支持动态加载模型、多种数据源(CSV/JSON/Redis)、自动参数补全及结果持久化。",
-    
-    # 使用 Complex Input Schema 定义复杂参数结构
-    input_schema = Dict{String,Any}(
-        "type" => "object",
-        "properties" => Dict{String,Any}(
-            # 1. 模型名称
-            "model_name" => Dict{String,Any}(
-                "type" => "string",
-                "description" => "水文模型的唯一标识符 (例如 'hbv', 'xinanjiang', 'gr4j')。"
-            ),
-            
-            # 2. 驱动数据配置 (嵌套对象)
-            "forcing" => Dict{String,Any}(
-                "type" => "object",
-                "description" => "驱动数据配置。需指定 source_type 及对应的 path/key/data。",
-                "properties" => Dict{String,Any}(
-                    "source_type" => Dict{String,Any}(
-                        "type" => "string",
-                        "enum" => ["csv", "json", "redis"],
-                        "description" => "数据源类型"
-                    ),
-                    "path" => Dict{String,Any}(
-                        "type" => "string",
-                        "description" => "文件路径 (仅适用于 csv/json)"
-                    ),
-                    "key" => Dict{String,Any}(
-                        "type" => "string",
-                        "description" => "Redis 键名 (仅适用于 redis)"
-                    ),
-                    "data" => Dict{String,Any}(
-                        "type" => "object",
-                        "description" => "直接传入的数据对象 (仅适用于 json)"
-                    ),
-                    "host" => Dict{String,Any}("type" => "string", "default" => "127.0.0.1"),
-                    "port" => Dict{String,Any}("type" => "integer", "default" => 6379)
-                ),
-                "required" => ["source_type"]
-            ),
-            
-            # 3. 模型参数 (数组)
-            "params" => Dict{String,Any}(
-                "type" => "array",
-                "items" => Dict{String,Any}("type" => "number"),
-                "description" => "模型参数数组。如果省略，将自动生成随机参数。"
-            ),
-            
-            # 4. 求解器 (枚举)
-            "solver" => Dict{String,Any}(
-                "type" => "string",
-                "enum" => ["ODE", "DISCRETE", "MANUAL"],
-                "default" => "ODE",
-                "description" => "微分方程求解器类型。"
-            ),
-            
-            # 5. 插值器 (枚举)
-            "interpolator" => Dict{String,Any}(
-                "type" => "string",
-                "enum" => ["LINEAR", "CONSTANT"],
-                "default" => "LINEAR",
-                "description" => "输入数据的插值方式。"
-            ),
-            
-            # 6. 其他配置
-            "config" => Dict{String,Any}(
-                "type" => "object",
-                "description" => "高级模拟配置 (例如指定输出变量)。",
-                "properties" => Dict{String,Any}(
-                    "output_variable" => Dict{String,Any}("type" => "string")
-                )
-            ),
-            
-            # 7. 初始状态
-            "init_states" => Dict{String,Any}(
-                "type" => "object",
-                "description" => "自定义初始状态 (状态名 -> 值)。"
-            )
-        ),
-        "required" => ["model_name", "forcing"]
-    ),
-
-    # Handler 函数
-    handler = function(params)
-        try
-            # 调用之前的业务逻辑核心
-            # Simulation.run_simulation_handler 返回的是一个 Dict
-            result = Simulation.run_simulation_handler(params)
-            
-            # 直接返回 Dict，MCP 库会自动将其转换为 JSON 格式的 TextContent
-            return result
-            
-        catch e
-            # 捕获错误并按照文档规范返回 Error Result
-            # 这样 Agent 能知道出错了，而不是让 Server 崩溃
-            err_msg = sprint(showerror, e)
-            stack_trace = sprint(Base.show_backtrace, catch_backtrace())
-            
-            return CallToolResult(
-                content = [
-                    Dict("type" => "text", "text" => "Simulation Failed: $err_msg\n\nDetails:\n$stack_trace")
-                ],
-                is_error = true
-            )
-        end
-    end
-)
 
 end

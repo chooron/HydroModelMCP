@@ -35,7 +35,9 @@ function run_sensitivity(model_name::String, forcing_nt::NamedTuple,
                          objective::String="NSE",
                          threshold::Float64=0.1,
                          solver_type::String="DISCRETE",
-                         interp_type::String="LINEAR")
+                         interp_type::String="LINEAR",
+                         param_bounds_override::Union{Nothing,Dict{String,Vector{Float64}}}=nothing,
+                         param_names_filter::Union{Nothing,Vector{String}}=nothing)
     # 1. 加载模型
     valid_name = String.(HydroModelLibrary.AVAILABLE_MODELS)
     idx = findfirst(m -> lowercase(m) == lowercase(strip(model_name)), valid_name)
@@ -46,22 +48,44 @@ function run_sensitivity(model_name::String, forcing_nt::NamedTuple,
     model = Base.invokelatest(m -> m.model, model_module)
 
     # 2. 获取参数信息和 bounds
-    param_names = string.(HydroModels.get_param_names(model))
+    all_param_names = string.(HydroModels.get_param_names(model))
     wrapper_params = Base.invokelatest(m -> m.model_parameters, model_module)
-    n_params = length(param_names)
 
-    lb = Float64[]
-    ub = Float64[]
-    for p in wrapper_params
-        bounds = try
-            b = HydroModels.getbounds(p)
-            (Float64(b[1]), Float64(b[2]))
-        catch
-            (0.0, 10.0)  # 默认范围
+    # 构建所有参数的默认边界
+    all_lb = Float64[]
+    all_ub = Float64[]
+    for (i, p) in enumerate(wrapper_params)
+        pname = all_param_names[i]
+        # 优先使用 param_bounds_override，否则用模型默认范围
+        if !isnothing(param_bounds_override) && haskey(param_bounds_override, pname)
+            b = param_bounds_override[pname]
+            push!(all_lb, Float64(b[1]))
+            push!(all_ub, Float64(b[2]))
+        else
+            bounds = try
+                b = HydroModels.getbounds(p)
+                (Float64(b[1]), Float64(b[2]))
+            catch
+                (0.0, 10.0)  # 默认范围
+            end
+            push!(all_lb, bounds[1])
+            push!(all_ub, bounds[2])
         end
-        push!(lb, bounds[1])
-        push!(ub, bounds[2])
     end
+
+    # 应用参数名筛选 (param_names_filter)
+    active_indices = if !isnothing(param_names_filter)
+        filter(i -> all_param_names[i] in param_names_filter, 1:length(all_param_names))
+    else
+        collect(1:length(all_param_names))
+    end
+
+    param_names = all_param_names[active_indices]
+    lb = all_lb[active_indices]
+    ub = all_ub[active_indices]
+
+    # 默认参数值（用于固定未分析的参数）
+    default_params = [(all_lb[i] + all_ub[i]) / 2.0 for i in 1:length(all_param_names)]
 
     # 3. 初始化状态
     state_names = HydroModels.get_state_names(model)
@@ -70,11 +94,16 @@ function run_sensitivity(model_name::String, forcing_nt::NamedTuple,
     solver_sym = Symbol(uppercase(solver_type))
     interp_sym = Symbol(uppercase(interp_type))
 
-    # 4. 构建目标函数: params_vector -> scalar
-    function objective_fn(params_vec::AbstractVector)
+    # 4. 构建目标函数: active_params_vector -> scalar
+    function objective_fn(active_vec::AbstractVector)
         try
+            # 组合完整参数向量（固定参数用默认值）
+            full_vec = copy(default_params)
+            for (j, idx) in enumerate(active_indices)
+                full_vec[idx] = active_vec[j]
+            end
             pnames = HydroModels.get_param_names(model)
-            pv = ComponentVector(; params=ComponentVector(NamedTuple{Tuple(pnames)}(params_vec)))
+            pv = ComponentVector(; params=ComponentVector(NamedTuple{Tuple(pnames)}(full_vec)))
             out = _execute_core(model, forcing_nt, pv, init_states,
                                 solver_sym, interp_sym, Dict{String,Any}())
             sim = Float64.(out)
