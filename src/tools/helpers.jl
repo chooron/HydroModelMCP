@@ -102,6 +102,17 @@ function optional_string(value, default::String)
     return string(value)
 end
 
+function store_last_result(handle::String, payload::Any)
+    store_data(handle, payload)
+    return nothing
+end
+
+function load_last_result(handle::String)
+    has_data(handle) || return nothing
+    return get_data(handle)
+end
+
 export create_error_response, create_json_response, validate_required_params,
        validate_enum_param, normalize_string_dict, workspace_root,
-       is_within_workspace, resolve_workspace_path, optional_string
+       is_within_workspace, resolve_workspace_path, optional_string,
+       store_last_result, load_last_result

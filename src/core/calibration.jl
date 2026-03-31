@@ -30,15 +30,25 @@ function _load_model_and_bounds(model_name::String)
     wrapper_params = Base.invokelatest(m -> m.model_parameters, model_module)
 
     param_names = Symbol.(string.(HydroModels.get_param_names(model)))
-    bounds_list = Tuple{Float64,Float64}[]
+    bounds_by_name = Dict{Symbol,Tuple{Float64,Float64}}()
     for p in wrapper_params
+        pname = Symbol(string(p))
         b = try
             raw = HydroModels.getbounds(p)
             (Float64(raw[1]), Float64(raw[2]))
         catch
             (0.0, 10.0)
         end
-        push!(bounds_list, b)
+        bounds_by_name[pname] = b
+    end
+
+    bounds_list = Tuple{Float64,Float64}[]
+    for pname in param_names
+        if haskey(bounds_by_name, pname)
+            push!(bounds_list, bounds_by_name[pname])
+        else
+            push!(bounds_list, (0.0, 10.0))
+        end
     end
 
     return model, canonical, param_names, bounds_list

@@ -38,7 +38,14 @@ list_workspace_files_tool = MCPTool(
 
             include_size = Bool(get(params, "include_size", true))
             include_modified = Bool(get(params, "include_modified", true))
-            extensions = haskey(params, "extensions") ? Set(lowercase.(String.(params["extensions"]))) : nothing
+            extensions = if haskey(params, "extensions")
+                Set(begin
+                    ext = lowercase(strip(string(raw_ext)))
+                    startswith(ext, ".") ? ext[2:end] : ext
+                end for raw_ext in params["extensions"])
+            else
+                nothing
+            end
 
             files = Dict{String,Any}[]
             for entry in readdir(directory; join = true)

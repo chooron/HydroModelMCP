@@ -31,8 +31,8 @@ Observed discharge path:
 Follow this sequence:
 1. Call `get_model_info` and `get_model_parameters` for the resolved model.
 2. If no forcing path was provided, inspect `./data` with `list_workspace_files` and choose the safest forcing file.
-3. Call `run_simulation` with `source_type="csv"` and the forcing path.
-4. If observed discharge exists, call `compute_metrics`; otherwise report that evaluation is observation-free.
+3. Call `run_simulation` with unified v2 request fields: `model`, `inputs`, optional `output`, and optional `options`.
+4. If observed discharge exists, call `compute_metrics` with explicit `simulated` + `observed` sources (or rely on same-session auto-inference only as fallback).
 5. End by calling `clear_session_cache` after outputs are written.
 
 Respond with:
@@ -51,7 +51,7 @@ const calibration_workflow_prompt = MCPPrompt(
     title = "Calibration Workflow Plan",
     description = "Guide an assistant through a calibration workflow using HydroModelMCP tools.",
     arguments = [
-        PromptArgument(name = "model_name", description = "Target hydrological model.", required = true),
+        PromptArgument(name = "model", description = "Target hydrological model.", required = true),
         PromptArgument(name = "goal", description = "Calibration goal such as general_fit or low_flows.", required = false),
         PromptArgument(name = "data_context", description = "Optional data or basin context.", required = false),
     ],
@@ -62,7 +62,7 @@ const calibration_workflow_prompt = MCPPrompt(
 Design a HydroModelMCP calibration workflow.
 
 Model:
-{model_name}{?goal?
+{model}{?goal?
 
 Goal:
 {goal}}{?data_context?
@@ -72,11 +72,13 @@ Data context:
 
 Use this tool-oriented order unless the evidence suggests otherwise:
 1. `get_model_info`, `get_model_parameters`, and `get_model_variables`.
-2. `load_hydro_csv` once for reusable forcing and observation handles.
+2. Prepare `inputs` for the unified v2 protocol (forcing plus observation; optional runtime and parameters).
+   - Parameter sources may be inline objects, json/csv/data_handle/calibration_result descriptors, or same-session calibrated parameters.
 3. `sensitivity_analysis` or `run_sensitivity` to screen insensitive parameters.
 4. `configure_objectives` and `init_calibration_setup` to shape the experiment.
 5. `calibrate_model` or `calibrate_multiobjective`.
 6. `diagnose_calibration` or `compute_diagnostics_full` to assess convergence and identifiability.
+7. Prefer passing `calibration_result=<calibrate_model result>` explicitly to `diagnose_calibration`; use same-session auto-inference only as fallback.
 
 Respond with:
 1. Recommended tool sequence.

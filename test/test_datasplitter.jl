@@ -2,6 +2,7 @@
 # 测试 DataSplitter 模块
 # ==========================================================================
 using .HydroModelMCP.DataSplitter
+using Dates
 
 @testset "DataSplitter Module Tests" begin
 
@@ -93,6 +94,53 @@ using .HydroModelMCP.DataSplitter
     @testset "错误处理：无效方法" begin
         @test_throws ArgumentError split_data(obs, forcing_nt; method="invalid_method")
         println("   [Pass] Invalid method throws ArgumentError as expected")
+    end
+
+    @testset "按索引时间段划分" begin
+        result = split_data(
+            obs,
+            forcing_nt;
+            calibration_period = Dict("start_index" => 11, "end_index" => 600),
+            validation_period = Dict("start_index" => 601, "end_index" => 900),
+        )
+
+        @test result["split_mode"] == "period"
+        @test result["method"] == "period_split"
+        @test result["cal_indices"] == [11, 600]
+        @test result["val_indices"] == [601, 900]
+        @test result["cal_length"] == 590
+        @test result["val_length"] == 300
+    end
+
+    @testset "无日期时按 start/end 自动构造 synthetic timeline" begin
+        result = split_data(
+            obs,
+            forcing_nt;
+            calibration_period = Dict("start" => "2000-01-01", "end" => "2001-12-31"),
+            validation_period = Dict("start" => "2002-01-01", "end" => "2003-12-31"),
+        )
+
+        @test result["split_mode"] == "period"
+        @test result["used_synthetic_dates"] == true
+        @test result["cal_length"] > 0
+        @test result["val_length"] > 0
+    end
+
+    @testset "有日期时按 start/end 划分" begin
+        dates = [Date(2000, 1, 1) + Day(i - 1) for i in 1:n_days]
+        result = split_data(
+            obs,
+            forcing_nt;
+            calibration_period = Dict("start" => "2000-02-01", "end" => "2001-01-31"),
+            validation_period = Dict("start" => "2001-02-01", "end" => "2001-06-30"),
+            dates = dates,
+        )
+
+        @test result["split_mode"] == "period"
+        @test result["used_synthetic_dates"] == false
+        @test result["dates_available"] == true
+        @test result["cal_length"] > 0
+        @test result["val_length"] > 0
     end
 
     println("\n   [Pass] All DataSplitter tests passed successfully!")

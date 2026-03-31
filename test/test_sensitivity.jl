@@ -2,6 +2,7 @@ using CSV
 using DataFrames
 using Random
 using .HydroModelMCP.SensitivityAnalysis
+using .HydroModelMCP.Calibration
 
 @testset "SensitivityAnalysis Module Tests" begin
     test_dir = @__DIR__
@@ -184,6 +185,32 @@ using .HydroModelMCP.SensitivityAnalysis
         else
             println("   -> Skipped: model has fewer than 2 parameters")
         end
+    end
+
+    @testset "Default Bounds Alignment" begin
+        println("\n   -> Testing default bounds alignment by parameter name...")
+
+        result = run_sensitivity(
+            test_model, forcing_nt, obs;
+            method = "morris",
+            n_samples = 10,
+            threshold = 0.1
+        )
+
+        _, _, expected_param_names, expected_bounds = Calibration._load_model_and_bounds(test_model)
+        expected_bounds_by_name = Dict(
+            string(expected_param_names[i]) => [expected_bounds[i][1], expected_bounds[i][2]]
+            for i in eachindex(expected_param_names)
+        )
+
+        @test haskey(result, "param_bounds")
+        result_bounds = result["param_bounds"]
+        for pname in result["param_names"]
+            @test haskey(result_bounds, pname)
+            @test result_bounds[pname] == expected_bounds_by_name[pname]
+        end
+
+        println("   -> Bounds alignment check passed")
     end
 
     println("\n   [Pass] All SensitivityAnalysis tests passed successfully!")

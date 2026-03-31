@@ -27,6 +27,7 @@ function build_resource_template_providers(storage_backend)
             "variables" => Discovery.get_variables_detail(args["model_name"]),
         ),
         "hydro://models/{model_name}/knowledge" => args -> model_knowledge_payload(args["model_name"]),
+        "hydro://hints/{feature}" => args -> llm_hint_payload(args["feature"]),
     )
 
     for spec in STORED_RESULT_SPECS
@@ -120,10 +121,12 @@ function _handle_read_template_resource(server::ModelContextProtocol.Server, req
 
         try
             data = provider(template_args)
+            text_payload = data isa AbstractString ? String(data) : JSON3.write(data)
+            default_mime = data isa AbstractString ? "text/plain" : "application/json"
             contents = [Dict{String,Any}(
                 "uri" => params.uri,
-                "text" => JSON3.write(data),
-                "mimeType" => something(template.mime_type, "application/json"),
+                "text" => text_payload,
+                "mimeType" => something(template.mime_type, default_mime),
             )]
 
             return ModelContextProtocol.JSONRPCResponse(

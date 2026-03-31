@@ -1,5 +1,25 @@
 using ModelContextProtocol
 
+function _semantic_candidate_models(query::String, models::Vector{String})
+    normalized = lowercase(strip(query))
+    isempty(normalized) && return String[]
+
+    generic_keywords = (
+        "runoff", "rainfall", "hydrology", "hydrologic", "watershed", "streamflow",
+        "precipitation", "basin", "model",
+    )
+
+    has_non_ascii = any(!isascii, normalized)
+    has_generic_keyword = any(occursin(keyword, normalized) for keyword in generic_keywords)
+    if !(has_non_ascii || has_generic_keyword)
+        return String[]
+    end
+
+    preferred = ["exphydro", "gr4j", "hbv", "sacramento", "hymod", "xaj"]
+    available = Set(models)
+    return [name for name in preferred if name in available]
+end
+
 list_models_tool = MCPTool(
     name = "list_models",
     description = "List the hydrological models exposed by HydroModelMCP.",
@@ -33,8 +53,9 @@ find_model_tool = MCPTool(
         !isnothing(validation_error) && return create_error_response(validation_error)
 
         query = params["query"]
+        models = Discovery.list_models()
         matches = Dict{String,Any}[]
-        for model_name in Discovery.list_models()
+        for model_name in models
             score = let
                 canonical = Discovery.find_model(query)
                 canonical == model_name ? 1.0 :
@@ -46,6 +67,17 @@ find_model_tool = MCPTool(
                 "full_name" => model_name,
                 "match_score" => score,
             ))
+        end
+
+        if isempty(matches)
+            fallback_models = _semantic_candidate_models(query, models)
+            for (idx, model_name) in enumerate(fallback_models)
+                push!(matches, Dict(
+                    "name" => model_name,
+                    "full_name" => model_name,
+                    "match_score" => max(0.45, 0.7 - 0.05 * (idx - 1)),
+                ))
+            end
         end
 
         sort!(matches; by = item -> (-Float64(item["match_score"]), String(item["name"])))

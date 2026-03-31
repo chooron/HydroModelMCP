@@ -2,6 +2,17 @@
 
 This directory contains three standalone Julia examples demonstrating different hydrological modeling strategies and calibration techniques.
 
+## MCP Protocol Note
+
+If you invoke HydroModelMCP tools through MCP clients, use the unified v2 contract:
+
+- Top-level request shape: `model + inputs` (required), with optional `output` and `options`.
+- `inputs` roles: `forcing`, `observation`, `parameters`, `runtime`.
+- Supported input sources: `csv`, `json`, `redis`, `camels`, `npz`, `data_handle`.
+- Automatic inference maps forcing variables and observed runoff columns, and returns `inference_report` plus `warnings`.
+
+These Julia scripts call core modules directly, but the workflow intent matches the same v2 structure.
+
 ## Examples Overview
 
 ### Example 1: Standard Automation Baseline
@@ -216,8 +227,9 @@ This example requires the combined GR4J+CemaNeige model (6 parameters: 4 from GR
 - Check model name spelling (case-sensitive)
 
 **Error: "Missing input variables"**
-- Verify your CSV has all required columns: prcp(mm/day), tmean(C), pet(mm), flow(mm)
-- Check column names match exactly (case-sensitive)
+- Ensure your data has forcing and observed runoff information with numeric values
+- For MCP tool calls, the server can infer common aliases (for example `prcp`, `precip`, `tmean`, `pet`, `obs`, `qmean`, `target`, `flow`, `discharge`)
+- If inference confidence is low, provide explicit mapping in `options.input_mapping`
 
 **Calibration takes too long**
 - Reduce `maxiters` (e.g., from 100 to 50)

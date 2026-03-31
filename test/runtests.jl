@@ -15,6 +15,10 @@ include("../src/HydroModelMCP.jl")
         include("test_discovery.jl")
     end
 
+    @testset "test data inspection" begin
+        include("test_data_loading.jl")
+    end
+
     @testset "test metrics" begin
         include("test_metrics.jl")
     end

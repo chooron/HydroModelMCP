@@ -97,12 +97,76 @@ const algorithm_guide_resource = MCPResource(
             ),
         ],
         "algorithms" => Dict(
-            "BBO" => Dict("name" => "Biogeography-Based Optimization", "best_for" => "Limited budget"),
-            "PSO" => Dict("name" => "Particle Swarm Optimization", "best_for" => "High budget"),
-            "DE" => Dict("name" => "Differential Evolution", "best_for" => "Continuous problems"),
-            "CMAES" => Dict("name" => "CMA-ES", "best_for" => "Smooth landscapes"),
-            "NSGA2" => Dict("name" => "NSGA-II", "best_for" => "Multi-objective"),
+            "BBO" => Dict(
+                "name" => "Biogeography-Based Optimization",
+                "name_zh" => "生物地理优化",
+                "best_for" => "Limited budget",
+                "aliases" => ["BBO", "biogeography-based optimization", "生物地理优化", "生物地理优化算法"],
+            ),
+            "PSO" => Dict(
+                "name" => "Particle Swarm Optimization",
+                "name_zh" => "粒子群优化",
+                "best_for" => "High budget",
+                "aliases" => ["PSO", "particle swarm optimization", "粒子群", "粒子群优化"],
+            ),
+            "DE" => Dict(
+                "name" => "Differential Evolution",
+                "name_zh" => "差分进化",
+                "best_for" => "Continuous problems",
+                "aliases" => ["DE", "differential evolution", "差分进化", "差分进化算法"],
+            ),
+            "CMAES" => Dict(
+                "name" => "CMA-ES",
+                "name_zh" => "协方差矩阵自适应进化策略",
+                "best_for" => "Smooth landscapes",
+                "aliases" => ["CMAES", "CMA-ES", "协方差矩阵自适应进化策略"],
+            ),
+            "ECA" => Dict(
+                "name" => "Evolutionary Center Algorithm",
+                "name_zh" => "进化中心算法",
+                "best_for" => "Lightweight exploratory calibration",
+                "aliases" => ["ECA", "evolutionary center algorithm", "进化中心算法"],
+            ),
+            "NSGA2" => Dict(
+                "name" => "NSGA-II",
+                "name_zh" => "多目标遗传算法2",
+                "best_for" => "Multi-objective",
+                "aliases" => ["NSGA2", "NSGA-II", "多目标遗传算法2"],
+            ),
+            "NSGA3" => Dict(
+                "name" => "NSGA-III",
+                "name_zh" => "多目标遗传算法3",
+                "best_for" => "Many-objective",
+                "aliases" => ["NSGA3", "NSGA-III", "多目标遗传算法3"],
+            ),
         ),
+        "runtime_solver_options" => [
+            Dict(
+                "canonical" => "DISCRETE",
+                "aliases" => ["DISCRETE", "discrete", "离散", "离散求解", "离散求解器"],
+                "best_for" => "Default robust hydrological routing",
+            ),
+            Dict(
+                "canonical" => "ODE",
+                "aliases" => ["ODE", "continuous", "连续", "连续求解", "连续求解器"],
+                "best_for" => "Continuous-time dynamics or ODE-driven formulations",
+            ),
+            Dict(
+                "canonical" => "MUTABLE",
+                "aliases" => ["MUTABLE", "mutable", "可变", "可变求解"],
+                "best_for" => "Advanced performance tuning with mutable state",
+            ),
+            Dict(
+                "canonical" => "IMMUTABLE",
+                "aliases" => ["IMMUTABLE", "immutable", "不可变", "不可变求解"],
+                "best_for" => "Functional-style immutable state evolution",
+            ),
+        ],
+        "runtime_interpolation_options" => [
+            Dict("canonical" => "LINEAR", "aliases" => ["LINEAR", "linear", "线性", "线性插值"]),
+            Dict("canonical" => "CONSTANT", "aliases" => ["CONSTANT", "constant", "step", "常量", "阶梯"]),
+            Dict("canonical" => "DIRECT", "aliases" => ["DIRECT", "direct", "直接", "直接映射"]),
+        ],
     ),
 )
 

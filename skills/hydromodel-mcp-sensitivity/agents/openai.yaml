@@ -1,0 +1,7 @@
+interface:
+  display_name: "HydroModelMCP Sensitivity"
+  short_description: "Run parameter sensitivity screening through HydroModelMCP."
+  default_prompt: "Use $hydromodel-mcp-sensitivity to run a HydroModelMCP sensitivity-analysis workflow."
+
+policy:
+  allow_implicit_invocation: true

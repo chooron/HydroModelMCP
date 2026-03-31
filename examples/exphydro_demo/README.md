@@ -96,23 +96,61 @@ npx @modelcontextprotocol/inspector julia --project=. start.jl
 
 然后在浏览器中访问 http://localhost:5173
 
-## 率定结果示例
+## MCP v2 请求示例
 
-运行演示后，结果会保存在 `calibration_results.json`:
+当前 MCP 工具采用统一 v2 协议：`model + inputs (+ output/options)`。
 
 ```json
 {
-  "model_name": "exphydro",
-  "best_params": {
-    "f": 0.606,
-    "Qmax": -2.564,
-    "Df": 1330.121,
-    "Tmin": 0.017,
-    "Smax": 2.864,
-    "Tmax": 21.449
-  },
-  "best_objective": 0.276,
-  "objective_name": "KGE"
+  "tool": "run_simulation",
+  "params": {
+    "model": "exphydro",
+    "inputs": {
+      "forcing": {
+        "source_type": "csv",
+        "path": "./data/03604000.csv"
+      },
+      "runtime": {
+        "source_type": "json",
+        "data": {
+          "solver": "DISCRETE",
+          "interpolation": "LINEAR"
+        }
+      }
+    },
+    "output": {
+      "result_source_type": "csv",
+      "output_dir": "./result"
+    },
+    "options": {
+      "auto_infer": true,
+      "strict_infer": false
+    }
+  }
+}
+```
+
+率定工具同样使用 v2 结构（并在顶层增加算法参数）：
+
+```json
+{
+  "tool": "calibrate_model",
+  "params": {
+    "model": "exphydro",
+    "inputs": {
+      "forcing": {
+        "source_type": "csv",
+        "path": "./data/03604000.csv"
+      },
+      "observation": {
+        "source_type": "csv",
+        "path": "./data/03604000.csv"
+      }
+    },
+    "objective": "KGE",
+    "algorithm": "BBO",
+    "maxiters": 80
+  }
 }
 ```
 

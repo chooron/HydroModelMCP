@@ -29,15 +29,16 @@ include("schemas/Schemas.jl")
 using .Schemas
 
 include("data_handles.jl")
-include("core/dataloader.jl")
+include("utils/dataloader.jl")
 include("core/metrics.jl")
 include("core/datasplitter.jl")
 include("core/sampling.jl")
+include("utils/unified_inputs.jl")
 include("core/simulation.jl")
 include("core/discovery.jl")
 include("core/sensitivity.jl")
 include("core/calibration.jl")
-include("core/storage.jl")
+include("utils/storage.jl")
 include("core/ensemble.jl")
 include("core/validation.jl")
 
@@ -47,6 +48,7 @@ include("resources/calibration.jl")
 include("resources/parameters.jl")
 include("resources/templates.jl")
 include("resources/workspace.jl")
+include("resources/hints.jl")
 include("mcp_resource_templates.jl")
 
 include("tools/helpers.jl")
@@ -101,6 +103,7 @@ const STORAGE_BACKEND = build_storage_backend()
 const ALL_TOOLS = MCPTool[
     load_camels_data_tool,
     analyze_distribution_from_handle_tool,
+    inspect_hydro_data_tool,
     load_hydro_csv_tool,
     list_models_tool,
     find_model_tool,
@@ -146,6 +149,8 @@ function build_resources(storage_backend = STORAGE_BACKEND)
         result_artifact_guide_resource,
         resource_templates_resource,
     ])
+
+    append!(resources, create_llm_hint_resources())
 
     append!(resources, create_storage_resources(storage_backend))
 

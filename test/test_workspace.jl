@@ -20,6 +20,17 @@ end
         @test all(endswith(lowercase(String(file["name"])), ".csv") for file in payload["files"])
     end
 
+    @testset "list workspace csv files with dotted extension" begin
+        payload = _workspace_payload(HydroModelMCP.list_workspace_files_tool.handler(Dict(
+            "directory" => ".\\data",
+            "extensions" => [".csv"],
+        )))
+
+        @test payload["status"] == "success"
+        @test payload["count"] > 0
+        @test all(endswith(lowercase(String(file["name"])), ".csv") for file in payload["files"])
+    end
+
     @testset "reject path escape outside workspace" begin
         response = HydroModelMCP.list_workspace_files_tool.handler(Dict(
             "directory" => "..",

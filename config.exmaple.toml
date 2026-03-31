@@ -1,0 +1,13 @@
+[mcp_servers.HydroModelMCP]
+command = "C:\\Users\\OMEN\\.julia\\juliaup\\julia-1.12.1+0.x64.w64.mingw32\\bin\\julia.exe"
+args = ["--project=E:\\JlCode\\HydroModelMCP", "E:\\JlCode\\HydroModelMCP\\start.jl"]
+cwd = "E:\\JlCode\\HydroModelMCP"
+startup_timeout_sec = 60
+tool_timeout_sec = 120
+
+[mcp_servers.HydroModelMCP.env]
+STORAGE_BACKEND = "file"
+HYDRO_SESSION_CACHE_BACKEND = "auto"
+JULIA_DEPOT_PATH = "D:\\Julia\\packages"
+JULIA_NUM_PRECOMPILE_TASKS = "1"
+JULIA_PKG_PRECOMPILE_AUTO = "0"

@@ -12,6 +12,7 @@ using .HydroModelMCP.Discovery
     template_uris = [template.uri_template for template in server.resource_templates]
 
     @test "list_models" in tool_names
+    @test "inspect_hydro_data" in tool_names
     @test "list_workspace_files" in tool_names
     @test "clear_session_cache" in tool_names
 
@@ -30,6 +31,7 @@ using .HydroModelMCP.Discovery
     @test "hydro://guides/data-handles" in resource_uris
     @test "hydro://guides/runoff-workspace" in resource_uris
     @test "hydro://guides/result-artifacts" in resource_uris
+    @test "hydro://guides/llm-hints" in resource_uris
     @test "hydro://meta/resource-templates" in resource_uris
     @test "hydro://calibration/results" in resource_uris
     @test "hydro://sensitivity/results" in resource_uris
@@ -45,6 +47,7 @@ using .HydroModelMCP.Discovery
     @test "hydro://models/{model_name}/parameters" in template_uris
     @test "hydro://models/{model_name}/variables" in template_uris
     @test "hydro://models/{model_name}/knowledge" in template_uris
+    @test "hydro://hints/{feature}" in template_uris
     @test "hydro://ensemble/results/{result_id}" in template_uris
 
     catalog_payload = HydroModelMCP.model_catalog_resource.data_provider()
@@ -82,6 +85,7 @@ using .HydroModelMCP.Discovery
     @test template_list_response isa ModelContextProtocol.JSONRPCResponse
     listed_templates = template_list_response.result["resourceTemplates"]
     @test any(t -> t["uriTemplate"] == "hydro://models/{model_name}/knowledge", listed_templates)
+    @test any(t -> t["uriTemplate"] == "hydro://hints/{feature}", listed_templates)
 
     parsed_template_request = ModelContextProtocol.parse_message(
         "{\"jsonrpc\":\"2.0\",\"id\":104,\"method\":\"resources/templates/list\",\"params\":{}}",
@@ -114,12 +118,39 @@ using .HydroModelMCP.Discovery
     @test dynamic_info_response isa ModelContextProtocol.JSONRPCResponse
     @test occursin("\"model\":\"gr4j\"", dynamic_info_response.result.contents[1]["text"])
 
+    hint_alias_response = ModelContextProtocol.handle_request(
+        server,
+        ModelContextProtocol.JSONRPCRequest(
+            id = 105,
+            method = "resources/read",
+            params = ModelContextProtocol.ReadResourceParams(uri = "hydro://hints/率定"),
+        ),
+    )
+    @test hint_alias_response isa ModelContextProtocol.JSONRPCResponse
+    @test occursin("calibration_stage2", hint_alias_response.result.contents[1]["text"])
+
+    hint_direct_response = ModelContextProtocol.handle_request(
+        server,
+        ModelContextProtocol.JSONRPCRequest(
+            id = 106,
+            method = "resources/read",
+            params = ModelContextProtocol.ReadResourceParams(uri = "hydro://hints/run_simulation"),
+        ),
+    )
+    @test hint_direct_response isa ModelContextProtocol.JSONRPCResponse
+    @test occursin("simulation_v2", hint_direct_response.result.contents[1]["text"])
+
     template_payload = HydroModelMCP.resource_templates_resource.data_provider()
     @test template_payload isa Dict
     @test !isempty(template_payload["templates"])
     @test any(t -> t["name"] == "model_info", template_payload["templates"])
     @test any(t -> t["name"] == "model_knowledge", template_payload["templates"])
+    @test any(t -> t["name"] == "llm_hint", template_payload["templates"])
     @test any(t -> t["name"] == "ensemble_result", template_payload["templates"])
+
+    hint_catalog_payload = HydroModelMCP.llm_hint_catalog_payload()
+    @test hint_catalog_payload["count"] >= 1
+    @test any(s -> s["feature"] == "calibration_stage2", hint_catalog_payload["features"])
 
     expert_text = first(HydroModelMCP.Experts.hydro_expert_prompt.messages).content.text
     processed = ModelContextProtocol.process_template(expert_text, Dict("task" => "Assess runoff simulation", "context" => "Short record"))

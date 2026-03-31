@@ -1,7 +1,6 @@
 interface:
-  display_name: Runoff Forecast
-  short_description: Execute one workspace runoff run through MCP using ./data inputs
-    and ./result outputs
+  display_name: Baseline Workflow Test
+  short_description: Validate HydroModelMCP workflows with trace-first, fail-fast execution
 policy:
   products:
   - chatgpt

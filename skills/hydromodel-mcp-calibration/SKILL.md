@@ -1,53 +1,149 @@
 ---
 name: hydromodel-mcp-calibration
-description: Operate the HydroModelMCP Julia MCP server for hydrological model discovery, data loading, sensitivity analysis, calibration, validation, and diagnostic workflows. Use when Codex needs to design or execute a hydrological calibration workflow, interpret identifiability or convergence issues, choose objective functions or algorithms, map Juliane Mai's ten-strategy calibration lifecycle onto this project, or orchestrate HydroModelMCP tools for model selection, parameter screening, multi-objective calibration, or calibration review.
+description: run a full hydrological calibration workflow through HydroModelMCP. use when Codex should execute or design a complete calibration process with data readiness checks, optional sensitivity screening, objective selection, calibration runs, diagnostics, and optionally validation. do not use this skill for quick low-cost parameter search only or for standalone sensitivity screening.
 ---
 
 # HydroModelMCP Calibration Workflow
 
+Use this skill for a full calibration workflow, not just a quick optimization run.
+
+## Scope
+
+This skill is for:
+- complete calibration workflows
+- calibration design and method choices
+- identifiability and convergence interpretation
+- objective-function and algorithm selection
+- validation-oriented calibration review
+
+Do not use this skill when:
+- the user only wants a quick low-cost parameter search
+- the user only wants parameter sensitivity screening
+
+Hand off instead:
+- use `hydromodel-mcp-optimization` for low-cost single-objective parameter search
+- use `hydromodel-mcp-sensitivity` for standalone parameter screening and ranking
+
 ## Start
 
-- Confirm whether the task is workflow design, tool orchestration, result interpretation, or service-gap review.
+- Confirm whether the user wants workflow design, full execution, diagnostics, or validation review.
 - Read [references/project-tool-map.md](references/project-tool-map.md) before naming tools or resources.
-- Read [references/paper-ten-strategies.md](references/paper-ten-strategies.md) when the request is about calibration method, experiment design, diagnostics, or "best practice."
+- Read [references/paper-ten-strategies.md](references/paper-ten-strategies.md) when the request is about calibration strategy, experiment design, or best practice.
+- Read [references/service-gaps.md](references/service-gaps.md) before promising functionality that depends on partially exposed server features.
 
-## Use the repository in a paper-aligned order
+## Canonical workflow
 
-1. Discover the model surface first.
+Use this order unless the user explicitly requests a narrower path.
 
-- Call `list_models`, `get_model_info`, `get_model_parameters`, and `get_model_variables` before recommending a model or parameter range.
-- Use `hydro://models/catalog` when the client benefits from browseable resource URIs.
+1. Discover the model surface.
 
-2. Load data once and reuse handles when possible.
+- `list_models`
+- `find_model`
+- `get_model_info`
+- `get_model_parameters`
+- `get_model_variables`
 
-- Prefer `load_hydro_csv` for local forcing-plus-observation CSV workflows.
-- Use `load_camels_data` only when the user already has a CAMELS NPZ artifact.
-- Prefer handle-based calls such as `sensitivity_analysis` and `calibrate_model` after loading data, so the client does not keep resending large arrays.
+2. Confirm data readiness.
 
-3. Walk the prepare -> execute -> check loop explicitly.
+- `inspect_hydro_data`
+- stop if the selected model has missing required inputs
+- stop if observed runoff is unavailable for calibration or validation
 
-- Prepare with `run_sensitivity` or `sensitivity_analysis`, `analyze_distribution_from_handle`, `split_data`, `configure_objectives`, and `init_calibration_setup`.
-- Execute with `generate_samples`, `calibrate_model`, `calibrate_multiobjective`, `run_validation`, and `run_ensemble_parameters`.
-- Check with `compute_metrics`, `diagnose_calibration`, and `compute_diagnostics_full`.
-- Prefer `n_trials >= 3` whenever the user wants convergence or identifiability judgments.
+3. Load data once and reuse handles.
 
-4. Make calibration decisions explicit instead of implicit.
+- `load_hydro_csv`
+- prefer `data_handle` reuse after loading
 
-- Screen insensitive parameters before broad calibration.
-- Recommend log-domain metrics only when the observation magnitude ratio or the low-flow objective justifies them.
-- Use multi-objective calibration only when the user truly needs a Pareto tradeoff, not merely multiple summary metrics.
-- Revise parameter ranges after diagnostics instead of treating defaults as final.
+4. Prepare the calibration design.
 
-## Respect current project limits
+- `analyze_distribution_from_handle`
+- `run_sensitivity` or `sensitivity_analysis` when screening is needed
+- `configure_objectives`
+- `split_data` when validation is required
+- `init_calibration_setup` when the client needs a packaged recommendation
 
-- Treat result-template metadata as aspirational unless a matching read path exists. Read [references/service-gaps.md](references/service-gaps.md) before promising stored-result retrieval.
-- Call out parameter-constraint workflows as a current gap. The core code contains delta and pie-share helpers, but the MCP tool layer does not yet expose constraint-aware calibration inputs.
-- Call out reproducibility limits. `random_seed` and `sampling_method` appear in the calibration schema, but they are not fully wired through the optimization path.
-- Call out HTTP configuration carefully. `start_http.jl` reads `JULIA_HTTP_*`, while `run_http_server` defaults to `MCP_*`.
-- Treat validation, simulation, storage, and HTTP behavior as partially tested surfaces.
+5. Execute calibration.
 
-## Produce useful outputs
+- `calibrate_model` for single-objective calibration
+- `calibrate_multiobjective` only when the user explicitly needs a Pareto tradeoff
 
-- Return a concrete tool sequence, not generic hydrology advice.
-- Separate "what the server can do now" from "what should be added next."
-- Read [references/service-gaps.md](references/service-gaps.md) and [../../docs/mcp-service-todo.md](../../docs/mcp-service-todo.md) before planning roadmap work.
+6. Check the result.
+
+- `diagnose_calibration`
+- `compute_diagnostics_full`
+- `run_validation` when validation data were prepared (prefer explicit `inputs.parameters`; same-session fallback is acceptable only when clearly reported)
+- `compute_metrics` when validation or comparison metrics are needed
+
+7. Finish cleanly.
+
+- `clear_session_cache`
+
+## Calibration defaults
+
+Use stronger defaults than the low-cost optimization skill.
+
+- prefer `n_trials >= 3` when the user asks about robustness, identifiability, or convergence
+- use a larger `maxiters` than the optimization skill unless the user explicitly asks for a cheap exploratory run
+- prefer `KGE` for general fit
+- recommend `LogKGE` or `LogNSE` only when low-flow behavior is the real target
+- use multi-objective calibration only when the user truly needs tradeoffs, not merely multiple reported metrics
+
+## Decision rules
+
+- screen insensitive parameters before broad calibration when identifiability is uncertain
+- revise parameter ranges after diagnostics instead of treating defaults as final
+- separate design choices from execution choices in the response
+- distinguish exploratory optimization from calibration-grade evidence
+
+## Current limits
+
+- treat criteria integration carefully; only the currently validated objective set should be promised
+- treat parameter-constraint workflows as a current gap
+- treat multi-objective diagnostics as partial because there is still no dedicated MCP tool for `diagnose_multiobjective`
+- treat validation, storage, and HTTP transport behavior as partially tested surfaces
+
+## Response structure
+
+# Calibration summary
+
+## Calibration target
+- selected model
+- why it matched
+- required inputs
+
+## Data readiness
+- source path or handle
+- model-required input coverage
+- observed runoff availability
+- blocking issues or `none`
+
+## Workflow design
+- sensitivity screening used or skipped
+- objective choice
+- algorithm choice
+- iteration and trial budget
+- validation split used or skipped
+
+## Calibration result
+- best objective
+- best parameters
+- runtime summary
+
+## Diagnostics
+- convergence status
+- identifiability warnings
+- range or algorithm adjustment suggestions
+
+## Validation
+- validation used or skipped
+- metrics when available
+
+## Outputs observed
+- handles, result ids, or artifacts if any
+
+## Next action
+- one small next step only
+
+## Test samples
+
+Read `references/test-samples.md` for concrete prompts and expected MCP tool sequences.

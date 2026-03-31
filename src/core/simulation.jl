@@ -9,6 +9,7 @@ using ..HydroModelLibrary
 using ..HydroModels
 using ..Random
 using ..Statistics
+using ..UnifiedInputs
 using ..UUIDs
 
 const DEFAULT_INPUT_ALIASES = Dict(
@@ -240,16 +241,8 @@ function _build_init_states(model, init_states_input)
 end
 
 function _forcing_config(args::AbstractDict)
-    if haskey(args, "forcing")
-        return args["forcing"]
-    end
-
-    config = Dict{String,Any}()
-    for key in ("source_type", "path", "key", "data", "host", "port")
-        haskey(args, key) && (config[key] = args[key])
-    end
-    isempty(config) && throw(ArgumentError("Missing forcing configuration"))
-    return config
+    haskey(args, "forcing") || throw(ArgumentError("Missing forcing configuration"))
+    return args["forcing"]
 end
 
 function _normalize_output_dir(output_dir)
@@ -262,24 +255,56 @@ function _normalize_output_dir(output_dir)
 end
 
 function run_simulation(args::AbstractDict)
-    model_name = string(get(args, "model_name", get(args, "model", nothing)))
-    model_name == "nothing" && throw(ArgumentError("Missing model name"))
+    request = UnifiedInputs.normalize_workflow_request(args)
+    canonical_model_name, model_module, model = _load_model(request["model"])
+    resolved = UnifiedInputs.resolve_common_inputs(
+        request,
+        model;
+        allow_partial_parameters = true,
+    )
 
-    forcing_config = _forcing_config(args)
-    canonical_model_name, model_module, model = _load_model(model_name)
-    source_type = Symbol(lowercase(string(forcing_config["source_type"])))
-    forcing_data, forcing_metadata = DataLoader.load_data(Val(source_type), forcing_config)
+    normalized_forcing = resolved["forcing_nt"]
+    params_input = resolved["parameters"]
+    runtime_cfg = resolved["runtime"]
+    output_cfg = request["output"]
 
-    input_mapping = _normalize_input_mapping(get(args, "input_mapping", nothing))
-    normalized_forcing, mapping_warnings = _normalize_forcing_data(forcing_data, model, input_mapping)
+    run_period = get(runtime_cfg, "period", get(request, "period", nothing))
+    run_warmup = get(runtime_cfg, "warmup", get(request, "warmup", nothing))
+    seed = haskey(runtime_cfg, "seed") ? Int(runtime_cfg["seed"]) :
+        (haskey(request, "seed") ? Int(request["seed"]) : nothing)
 
-    params_input = get(args, "params", nothing)
-    seed = haskey(args, "seed") ? Int(args["seed"]) :
-        (haskey(args, "random_seed") ? Int(args["random_seed"]) : nothing)
+    parameter_warnings = String[]
 
     params_vec, params_used, params_source = if isnothing(params_input)
         generated_params, used = _random_params(canonical_model_name, model_module, model; seed = seed)
         generated_params, used, "random"
+    elseif params_input isa AbstractDict
+        param_names = String.(HydroModels.get_param_names(model))
+        provided_lookup = Dict{String,Any}(lowercase(strip(string(k))) => v for (k, v) in pairs(params_input))
+        resolved_params = Dict{String,Float64}()
+        missing = String[]
+
+        for pname in param_names
+            norm_key = lowercase(strip(pname))
+            if haskey(provided_lookup, norm_key)
+                resolved_params[pname] = Float64(provided_lookup[norm_key])
+            else
+                push!(missing, pname)
+            end
+        end
+
+        source = "provided"
+        if !isempty(missing)
+            _, random_used = _random_params(canonical_model_name, model_module, model; seed = seed)
+            for pname in missing
+                resolved_params[pname] = random_used[pname]
+            end
+            source = "provided_partial+random"
+            push!(parameter_warnings, "Filled missing parameters with random valid values: $(join(missing, ", "))")
+        end
+
+        provided = _component_vector_from_params(model, resolved_params)
+        provided, resolved_params, source
     else
         provided = _component_vector_from_params(model, params_input)
         used = Dict{String,Float64}()
@@ -289,19 +314,20 @@ function run_simulation(args::AbstractDict)
         provided, used, "provided"
     end
 
-    init_states = _build_init_states(model, get(args, "init_states", nothing))
-    solver_sym = Symbol(uppercase(string(get(args, "solver", "DISCRETE"))))
-    interp_sym = Symbol(uppercase(string(get(args, "interpolation", get(args, "interpolator", "LINEAR")))))
-    config_dict = if haskey(args, "config") && args["config"] isa AbstractDict
-        Dict{String,Any}(string(k) => v for (k, v) in pairs(args["config"]))
+    init_states = _build_init_states(model, get(runtime_cfg, "init_states", nothing))
+    solver_sym = Symbol(uppercase(string(get(runtime_cfg, "solver", "DISCRETE"))))
+    interp_sym = Symbol(uppercase(string(get(runtime_cfg, "interpolation", "LINEAR"))))
+    config_dict = if haskey(runtime_cfg, "config") && runtime_cfg["config"] isa AbstractDict
+        Dict{String,Any}(string(k) => v for (k, v) in pairs(runtime_cfg["config"]))
     else
         Dict{String,Any}()
     end
 
-    warnings = copy(mapping_warnings)
-    for optional_key in ("period", "warmup")
-        haskey(args, optional_key) && push!(warnings, "Field '$optional_key' is recorded but not applied by the current simulation core")
-    end
+    warnings = String[]
+    append!(warnings, String.(resolved["warnings"]))
+    append!(warnings, parameter_warnings)
+    haskey(runtime_cfg, "period") && push!(warnings, "Field 'period' is recorded but not applied by the current simulation core")
+    haskey(runtime_cfg, "warmup") && push!(warnings, "Field 'warmup' is recorded but not applied by the current simulation core")
 
     t_start = time()
     result_vector = _execute_core(
@@ -317,7 +343,8 @@ function run_simulation(args::AbstractDict)
 
     run_id = string(UUIDs.uuid4())
     timestamp = Dates.format(now(), "yyyymmddHHMMSS")
-    output_dir = _normalize_output_dir(get(args, "output_dir", nothing))
+    output_dir = _normalize_output_dir(get(output_cfg, "output_dir", nothing))
+    result_source_type = Symbol(lowercase(string(get(output_cfg, "result_source_type", "csv"))))
 
     artifact_payload = Dict{String,Any}(
         "status" => "success",
@@ -331,25 +358,44 @@ function run_simulation(args::AbstractDict)
             "solver" => string(solver_sym),
             "interpolation" => string(interp_sym),
             "runtime_seconds" => runtime_seconds,
-            "period" => get(args, "period", nothing),
-            "warmup" => get(args, "warmup", nothing),
+            "period" => run_period,
+            "warmup" => run_warmup,
         ),
+        "inference_report" => resolved["inference_report"],
     )
 
-    save_context = (
-        output_dir = output_dir,
-        timestamp = timestamp,
-        run_id = run_id,
-        run_info = artifact_payload["run_info"],
-        artifact_payload = artifact_payload,
-        warnings = warnings,
-        params_used = params_used,
-        params_source = params_source,
-        params_seed = seed,
-        base_name = get(args, "base_name", nothing),
+    save_context = Dict{String,Any}(
+        "output_dir" => output_dir,
+        "timestamp" => timestamp,
+        "run_id" => run_id,
+        "run_info" => artifact_payload["run_info"],
+        "artifact_payload" => artifact_payload,
+        "warnings" => warnings,
+        "params_used" => params_used,
+        "params_source" => params_source,
+        "params_seed" => seed,
+        "base_name" => get(output_cfg, "base_name", get(request, "base_name", nothing)),
+        "inference_report" => resolved["inference_report"],
     )
 
-    result = DataLoader.save_data(Val(source_type), result_vector, DataLoader._merge_metadata(forcing_metadata, save_context))
+    if result_source_type == :redis
+        forcing_spec = request["inputs"]["forcing"]
+        result_host = string(get(output_cfg, "result_host", get(forcing_spec, "host", "127.0.0.1")))
+        result_port_raw = get(output_cfg, "result_port", get(forcing_spec, "port", 6379))
+        result_port = try
+            Int(result_port_raw)
+        catch
+            parse(Int, string(result_port_raw))
+        end
+
+        save_context["conn_conf"] = (host = result_host, port = result_port)
+        haskey(forcing_spec, "key") && (save_context["input_key"] = string(forcing_spec["key"]))
+        haskey(output_cfg, "result_key") && (save_context["output_key"] = string(output_cfg["result_key"]))
+    end
+
+    forcing_metadata = resolved["metadata"]["forcing"]
+    merged_metadata = DataLoader._merge_metadata(forcing_metadata, save_context)
+    result = DataLoader.save_data(Val(result_source_type), result_vector, merged_metadata)
     result["status"] = "success"
     result["run_id"] = run_id
     result["warnings"] = warnings
@@ -358,6 +404,7 @@ function run_simulation(args::AbstractDict)
     result["params_used"] = params_used
     result["params_source"] = params_source
     result["params_seed"] = seed
+    result["inference_report"] = resolved["inference_report"]
     return result
 end
 

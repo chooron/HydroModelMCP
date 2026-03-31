@@ -1,7 +1,7 @@
 interface:
   display_name: "HydroModelMCP Calibration"
-  short_description: "Drive HydroModelMCP with a calibration-first workflow."
-  default_prompt: "Use $hydromodel-mcp-calibration to plan or execute a HydroModelMCP calibration workflow."
+  short_description: "Run a full calibration and validation workflow through HydroModelMCP."
+  default_prompt: "Use $hydromodel-mcp-calibration to plan or execute a full HydroModelMCP calibration workflow."
 
 policy:
   allow_implicit_invocation: true

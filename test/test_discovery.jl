@@ -2,6 +2,8 @@
 # 1. 引入待测模块
 # ==========================================================================
 # 注意：这里我们使用 include 方式，或者确保 Discovery 在 LOAD_PATH 中
+using JSON3
+using .HydroModelMCP
 using .HydroModelMCP.Discovery
 
 # ==========================================================================
@@ -44,6 +46,17 @@ using .HydroModelMCP.Discovery
         @test isnothing(find_model("SuperModel_2077"))
 
         println("   [Pass] find_model matches regardless of case input.")
+    end
+
+    @testset "find_model tool fallback for semantic query" begin
+        payload = JSON3.read(HydroModelMCP.find_model_tool.handler(Dict(
+            "query" => "降雨径流水文模型",
+        )).text, Dict{String,Any})
+
+        @test payload["status"] == "success"
+        @test payload["matches"] isa Vector
+        @test !isempty(payload["matches"])
+        @test any(item["name"] == "exphydro" for item in payload["matches"])
     end
 
     @testset "get_model_info" begin

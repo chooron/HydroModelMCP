@@ -59,11 +59,11 @@ const INIT_STATES_SCHEMA = Dict{String,Any}(
 """驱动数据配置"""
 const FORCING_SCHEMA = Dict{String,Any}(
     "type" => "object",
-    "description" => "驱动数据配置（支持csv/json/redis）",
+    "description" => "驱动数据配置（支持csv/json/redis/camels）",
     "properties" => Dict{String,Any}(
         "source_type" => Dict{String,Any}(
             "type" => "string",
-            "enum" => ["csv", "json", "redis"],
+            "enum" => ["csv", "json", "redis", "camels"],
             "description" => "数据源类型"
         ),
         "path" => Dict{String,Any}(
@@ -87,6 +87,18 @@ const FORCING_SCHEMA = Dict{String,Any}(
             "type" => "integer",
             "default" => 6379,
             "description" => "Redis 服务器端口 (默认 6379)"
+        ),
+        "dataset_path" => Dict{String,Any}(
+            "type" => "string",
+            "description" => "CAMELS NPZ 路径（可选；未提供时使用 CAMESL_DATASET_PATH/CAMELS_DATASET_PATH）"
+        ),
+        "gage_id" => Dict{String,Any}(
+            "type" => "integer",
+            "description" => "CAMELS 流域站点 ID"
+        ),
+        "gauge_id" => Dict{String,Any}(
+            "type" => "integer",
+            "description" => "CAMELS 站点 ID 别名（等价于 gage_id）"
         )
     ),
     "required" => ["source_type"]

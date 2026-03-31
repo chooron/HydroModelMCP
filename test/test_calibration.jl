@@ -1,7 +1,15 @@
 # ==========================================================================
 # 测试 Calibration 模块
 # ==========================================================================
+using JSON3
+using .HydroModelMCP
 using .HydroModelMCP.Calibration
+
+function _parse_calibration_tool_json(response)
+    text = response.text
+    startswith(text, "Error:") && error(text)
+    return JSON3.read(text, Dict{String,Any})
+end
 
 @testset "Calibration Module Tests" begin
 
@@ -221,6 +229,151 @@ using .HydroModelMCP.Calibration
                 println("        - $(rec)")
             end
         end
+    end
+
+    @testset "calibrate_model tool uses canonical data_handle interface" begin
+        payload = _parse_calibration_tool_json(HydroModelMCP.calibrate_tool.handler(Dict(
+            "model" => "exphydro",
+            "inputs" => Dict(
+                "forcing" => Dict("source_type" => "csv", "path" => data_file),
+                "observation" => Dict("source_type" => "csv", "path" => data_file, "column" => "flow(mm)"),
+            ),
+            "algorithm" => "BBO",
+            "maxiters" => 20,
+            "n_trials" => 1,
+            "objective" => "KGE",
+        )))
+
+        @test payload["status"] == "success"
+        @test payload["model_name"] == "exphydro"
+        @test payload["maxiters"] == 20
+        @test payload["n_trials"] == 1
+        @test haskey(payload, "best_params")
+
+        bounds_lookup = Dict{String,Any}(String(name) => bounds for (name, bounds) in payload["param_bounds"])
+        for (pname, pvalue) in payload["best_params"]
+            lo, hi = Float64(bounds_lookup[pname][1]), Float64(bounds_lookup[pname][2])
+            @test lo <= Float64(pvalue) <= hi
+        end
+    end
+
+    @testset "diagnose_calibration can reuse last calibration result" begin
+        calibration_payload = _parse_calibration_tool_json(HydroModelMCP.calibrate_tool.handler(Dict(
+            "model" => "exphydro",
+            "inputs" => Dict(
+                "forcing" => Dict("source_type" => "csv", "path" => data_file),
+                "observation" => Dict("source_type" => "csv", "path" => data_file, "column" => "flow(mm)"),
+            ),
+            "algorithm" => "BBO",
+            "maxiters" => 20,
+            "n_trials" => 1,
+            "objective" => "KGE",
+        )))
+
+        @test calibration_payload["status"] == "success"
+
+        diag_payload = _parse_calibration_tool_json(HydroModelMCP.diagnose_tool.handler(Dict()))
+        @test haskey(diag_payload, "summary")
+        @test haskey(diag_payload, "recommendations")
+        @test diag_payload["recommendations"] isa Vector
+    end
+
+    @testset "calibrate_model normalizes bilingual objective and algorithm aliases" begin
+        payload = _parse_calibration_tool_json(HydroModelMCP.calibrate_tool.handler(Dict(
+            "model" => "exphydro",
+            "inputs" => Dict(
+                "forcing" => Dict("source_type" => "csv", "path" => data_file),
+                "observation" => Dict("source_type" => "csv", "path" => data_file, "column" => "flow(mm)"),
+            ),
+            "objective" => "纳什效率",
+            "algorithm" => "粒子群优化",
+            "maxiters" => 12,
+            "n_trials" => 1,
+        )))
+
+        @test payload["status"] == "success"
+        @test payload["objective_name"] == "NSE"
+        @test payload["algorithm"] == "PSO"
+    end
+
+    @testset "calibrate_model supports stage2 auto split evaluation" begin
+        payload = _parse_calibration_tool_json(HydroModelMCP.calibrate_tool.handler(Dict(
+            "model" => "exphydro",
+            "inputs" => Dict(
+                "forcing" => Dict("source_type" => "csv", "path" => data_file),
+                "observation" => Dict("source_type" => "csv", "path" => data_file, "column" => "flow(mm)"),
+            ),
+            "algorithm" => "BBO",
+            "objective" => "KGE",
+            "maxiters" => 8,
+            "n_trials" => 1,
+            "method" => "split_sample",
+            "ratio" => 0.75,
+            "warmup" => 30,
+            "metrics" => ["NSE", "KGE"],
+        )))
+
+        @test payload["status"] == "success"
+        @test haskey(payload, "stage2_evaluation")
+        stage2 = payload["stage2_evaluation"]
+        @test stage2["split_mode"] == "auto"
+        @test stage2["train_length"] > 0
+        @test stage2["test_length"] > 0
+        @test stage2["test_available"] == true
+        @test haskey(stage2["train_metrics"], "NSE")
+        @test haskey(stage2["test_metrics"], "KGE")
+        @test payload["maxiters"] == 8
+    end
+
+    @testset "calibrate_model supports stage2 period split evaluation" begin
+        payload = _parse_calibration_tool_json(HydroModelMCP.calibrate_tool.handler(Dict(
+            "model" => "exphydro",
+            "inputs" => Dict(
+                "forcing" => Dict("source_type" => "csv", "path" => data_file),
+                "observation" => Dict("source_type" => "csv", "path" => data_file, "column" => "flow(mm)"),
+            ),
+            "algorithm" => "BBO",
+            "objective" => "KGE",
+            "maxiters" => 6,
+            "n_trials" => 1,
+            "calibration_period" => Dict("start_index" => 1, "end_index" => 900),
+            "validation_period" => Dict("start_index" => 901, "end_index" => 1200),
+            "metrics" => ["NSE"],
+        )))
+
+        @test payload["status"] == "success"
+        @test haskey(payload, "stage2_evaluation")
+        stage2 = payload["stage2_evaluation"]
+        @test stage2["split_mode"] == "period"
+        @test stage2["train_indices"] == [1, 900]
+        @test stage2["test_indices"] == [901, 1200]
+        @test stage2["train_length"] == 900
+        @test stage2["test_length"] == 300
+        @test haskey(stage2["test_metrics"], "NSE")
+    end
+
+    @testset "model bounds are aligned by parameter name" begin
+        _, _, param_names, bounds = HydroModelMCP.Calibration._load_model_and_bounds("exphydro")
+        bound_map = Dict(string(param_names[i]) => bounds[i] for i in eachindex(param_names))
+
+        @test bound_map["f"] == (0.0, 0.1)
+        @test bound_map["Smax"] == (100.0, 2000.0)
+        @test bound_map["Qmax"] == (10.0, 50.0)
+        @test bound_map["Df"] == (0.0, 5.0)
+        @test bound_map["Tmax"] == (0.0, 3.0)
+        @test bound_map["Tmin"] == (-3.0, 0.0)
+    end
+
+    @testset "calibrate_model tool rejects legacy direct forcing interface" begin
+        response = HydroModelMCP.calibrate_tool.handler(Dict(
+            "model" => "exphydro",
+            "forcing" => Dict("source_type" => "csv", "path" => data_file),
+            "observation" => Dict("source_type" => "csv", "path" => data_file),
+            "obs_column" => "flow(mm)",
+        ))
+
+        @test startswith(response.text, "Error:")
+        @test occursin("inputs", response.text)
     end
 
     @testset "多目标诊断 (Pareto 退化检测)" begin

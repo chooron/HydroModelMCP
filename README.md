@@ -162,6 +162,7 @@ Resource templates are discoverable through the protocol itself:
 HydroModelMCP/
 |-- src/
 |   |-- core/          # hydrology and optimization logic
+|   |-- utils/         # data/runtime/storage utilities
 |   |-- resources/     # MCP resources
 |   |-- tools/         # MCP tool definitions
 |   |-- prompts/       # MCP prompts
@@ -222,15 +223,95 @@ Run a simulation:
   "tool": "run_simulation",
   "params": {
     "model": "exphydro",
-    "source_type": "csv",
-    "path": "./data/03604000.csv",
-    "output_dir": "./result",
-    "solver": "DISCRETE",
-    "interpolation": "LINEAR",
-    "seed": 1234
+    "inputs": {
+      "forcing": {
+        "source_type": "csv",
+        "path": "./data/03604000.csv"
+      },
+      "runtime": {
+        "source_type": "json",
+        "data": {
+          "solver": "DISCRETE",
+          "interpolation": "LINEAR",
+          "seed": 1234
+        }
+      }
+    },
+    "output": {
+      "result_source_type": "csv",
+      "output_dir": "./result"
+    },
+    "options": {
+      "auto_infer": true,
+      "strict_infer": false
+    }
   }
 }
 ```
+
+Run validation with explicit observation source:
+
+```json
+{
+  "tool": "run_validation",
+  "params": {
+    "model": "exphydro",
+    "inputs": {
+      "forcing": {
+        "source_type": "csv",
+        "path": "./data/03604000.csv"
+      },
+      "observation": {
+        "source_type": "csv",
+        "path": "./data/03604000.csv"
+      }
+    },
+    "calibration_period": {
+      "start": "1989-01-01",
+      "end": "1995-12-31"
+    },
+    "validation_period": {
+      "start": "1996-01-01",
+      "end": "1998-12-31"
+    },
+    "metrics": ["NSE", "KGE", "RMSE"]
+  }
+}
+```
+
+## Unified v2 Workflow Protocol
+
+HydroModelMCP now uses a unified request contract for simulation, validation, ensemble, and v2 calibration tools:
+
+- Required top-level fields: `model`, `inputs`
+- Optional top-level fields: `output`, `options`, plus workflow-specific fields such as `metrics`, `objectives`, `parameter_sets`, `calibration_period`, and `validation_period`
+- `inputs` is role-based: `forcing`, `observation`, `parameters`, `runtime`
+- Each input role uses a source descriptor with `source_type` in: `csv`, `json`, `redis`, `camels`, `npz`, `data_handle`
+
+Example source descriptors:
+
+```json
+{
+  "source_type": "csv",
+  "path": "./data/03604000.csv"
+}
+```
+
+```json
+{
+  "source_type": "redis",
+  "host": "127.0.0.1",
+  "port": 6379,
+  "key": "hydro:forcing:03604000"
+}
+```
+
+### Intelligent Input Inference
+
+- Forcing variables are auto-mapped to model inputs (for example `P`, `T`, `Ep`) using aliases and numeric-series heuristics.
+- Observed runoff is auto-detected from aliases such as `obs`, `qmean`, `target`, `flow`, `streamflow`, and `discharge`.
+- Every workflow response returns machine-readable `inference_report` and `warnings` to help clients inspect mapping confidence.
+- Use `options.input_mapping` to pin explicit mappings and `options.strict_infer=true` to fail on low-confidence inference.
 
 List workspace files:
 
@@ -269,7 +350,7 @@ Use the prompt:
 
 - Per-model template URIs are metadata only because the installed `ModelContextProtocol.jl` handler resolves exact registered URIs rather than wildcard templates, and this server intentionally avoids per-model resource registration to keep startup and `resources/list` compact.
 - Stored result IDs are listed through `hydro://calibration/results`, `hydro://sensitivity/results`, and `hydro://ensemble/results`. If you need fresh per-result resource registration after new runs, restart the server or rebuild the server resource registry.
-- Final result artifacts are written to `./result`, while transient `data_handle` payloads prefer session cache and can be cleared with `clear_session_cache`.
+- Final result artifacts are written to `./result` by default unless `output.result_source_type="redis"` is used for cache-oriented output.
 
 ## Acknowledgements
 

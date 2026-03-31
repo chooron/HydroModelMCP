@@ -4,55 +4,79 @@ using .Schemas
 import UUIDs
 import Dates
 
-# ==============================================================================
-# 1. 计算评价指标工具
-# ==============================================================================
-compute_metrics_tool = MCPTool(
-    name = "compute_metrics",
-    description = "计算模拟结果与观测数据之间的评价指标。支持 NSE, KGE, LogNSE, LogKGE, PBIAS, R2, RMSE。自动检测是否建议对数变换(Strategy 3)。",
-    input_schema = Dict{String,Any}(
-        "type" => "object",
-        "properties" => Dict{String,Any}(
-            "simulation" => DATA_SOURCE_SCHEMA,
-            "observation" => OBSERVATION_SCHEMA,
-            "sim_column" => SIM_COLUMN_SCHEMA,
-            "obs_column" => OBS_COLUMN_SCHEMA,
-            "metrics" => METRICS_SCHEMA
-        ),
-        "required" => ["simulation", "observation", "sim_column", "obs_column"]
+const WORKFLOW_INPUTS_REQUIRED_FORCING_OBS = Dict{String,Any}(
+    "type" => "object",
+    "properties" => Dict{String,Any}(
+        "forcing" => WORKFLOW_SOURCE_SCHEMA,
+        "observation" => WORKFLOW_SOURCE_SCHEMA,
+        "parameters" => WORKFLOW_SOURCE_SCHEMA,
+        "runtime" => WORKFLOW_SOURCE_SCHEMA,
     ),
-    handler = function(params)
-        # 验证必需参数
-        validation_error = validate_required_params(params, ["simulation", "observation", "sim_column", "obs_column"])
-        if !isnothing(validation_error)
-            return create_error_response(validation_error)
-        end
-
-        try
-            # 加载模拟和观测数据
-            sim_config = params["simulation"]
-            obs_config = params["observation"]
-            sim_col = params["sim_column"]
-            obs_col = params["obs_column"]
-
-            sim_data, _ = DataLoader.load_data(Val(Symbol(sim_config["source_type"])), sim_config)
-            obs_data, _ = DataLoader.load_data(Val(Symbol(obs_config["source_type"])), obs_config)
-
-            sim_vec = Float64.(sim_data[Symbol(sim_col)])
-            obs_vec = Float64.(obs_data[Symbol(obs_col)])
-
-            metric_names = _normalize_metric_names(
-                get(params, "metrics", String["NSE", "KGE", "LogNSE", "LogKGE", "PBIAS", "R2", "RMSE", "MAE", "Bias"]),
-            )
-            n = min(length(sim_vec), length(obs_vec))
-            result = Metrics.compute_metrics(sim_vec[1:n], obs_vec[1:n], metric_names)
-
-            return TextContent(text = JSON3.write(result))
-        catch e
-            return create_error_response(e)
-        end
-    end
+    "required" => ["forcing", "observation"],
 )
+
+const OBJECTIVE_NAME_ALIASES = Dict{String,String}(
+    "kge" => "KGE",
+    "klinggupta" => "KGE",
+    "klingguptaefficiency" => "KGE",
+    "综合拟合" => "KGE",
+    "nse" => "NSE",
+    "nashefficiency" => "NSE",
+    "nashsutcliffe" => "NSE",
+    "纳什效率" => "NSE",
+    "lognse" => "LogNSE",
+    "对数nse" => "LogNSE",
+    "对数纳什效率" => "LogNSE",
+    "logkge" => "LogKGE",
+    "对数kge" => "LogKGE",
+    "pbias" => "PBIAS",
+    "bias" => "PBIAS",
+    "水量偏差" => "PBIAS",
+    "r2" => "R2",
+    "决定系数" => "R2",
+    "rmse" => "RMSE",
+    "均方根误差" => "RMSE",
+)
+
+const SINGLE_ALGORITHM_ALIASES = Dict{String,String}(
+    "bbo" => "BBO",
+    "biogeographybasedoptimization" => "BBO",
+    "biogeography" => "BBO",
+    "生物地理优化" => "BBO",
+    "生物地理优化算法" => "BBO",
+    "de" => "DE",
+    "differentialevolution" => "DE",
+    "差分进化" => "DE",
+    "差分进化算法" => "DE",
+    "pso" => "PSO",
+    "particleswarmoptimization" => "PSO",
+    "粒子群" => "PSO",
+    "粒子群优化" => "PSO",
+    "cmaes" => "CMAES",
+    "cmaesoptimization" => "CMAES",
+    "协方差矩阵自适应进化策略" => "CMAES",
+    "eca" => "ECA",
+    "evolutionarycenteralgorithm" => "ECA",
+    "进化中心算法" => "ECA",
+)
+
+const MULTI_ALGORITHM_ALIASES = Dict{String,String}(
+    "nsga2" => "NSGA2",
+    "nsgaii" => "NSGA2",
+    "多目标遗传算法2" => "NSGA2",
+    "nsga3" => "NSGA3",
+    "nsgaiii" => "NSGA3",
+    "多目标遗传算法3" => "NSGA3",
+)
+
+function _normalize_named_choice(value, field::String, aliases::Dict{String,String}, allowed::Set{String})
+    raw = strip(string(value))
+    isempty(raw) && throw(ArgumentError("$field cannot be empty"))
+    key = lowercase(replace(raw, r"[^0-9A-Za-z一-龥]+" => ""))
+    canonical = haskey(aliases, key) ? aliases[key] : uppercase(raw)
+    canonical in allowed || throw(ArgumentError("Invalid value for '$field': $value. Must be one of: $(join(sort!(collect(allowed)), ", "))"))
+    return canonical
+end
 
 function _normalize_metric_names(metric_names_input)
     metric_names_input isa AbstractVector ||
@@ -80,8 +104,63 @@ function _normalize_metric_names(metric_names_input)
 end
 
 function _metric_candidates(role::String)
-    role == "simulated" && return ["Result", "simulated", "simulation", "runoff", "Q"]
+    role == "simulated" && return ["Result", "result", "simulated", "simulation", "runoff", "Q"]
     return ["flow(mm)", "flow", "runoff", "discharge", "streamflow", "Q", "observed"]
+end
+
+function _infer_metric_key(available_keys::Vector{String}, role::String, explicit_column)
+    lookup = Dict(lowercase(k) => k for k in available_keys)
+
+    if !(explicit_column === nothing)
+        requested = String(explicit_column)
+        resolved = get(lookup, lowercase(requested), nothing)
+        isnothing(resolved) &&
+            throw(ArgumentError("Column '$requested' not found in $(role) source. Available columns: $(join(sort(available_keys), ", "))"))
+        return resolved, String[]
+    end
+
+    warnings = String[]
+    for candidate in _metric_candidates(role)
+        resolved = get(lookup, lowercase(candidate), nothing)
+        isnothing(resolved) || begin
+            push!(warnings, "Inferred $(role) column '$resolved'")
+            return resolved, warnings
+        end
+    end
+
+    isempty(available_keys) && throw(ArgumentError("Could not infer a $(role) column from empty source data"))
+    fallback = sort(available_keys)[1]
+    push!(warnings, "Fell back to first available $(role) column '$fallback'")
+    return fallback, warnings
+end
+
+function _column_value_from_source(data_source, column_name::String)
+    if data_source isa NamedTuple
+        return getproperty(data_source, Symbol(column_name))
+    elseif data_source isa AbstractDict
+        haskey(data_source, column_name) && return data_source[column_name]
+        haskey(data_source, Symbol(column_name)) && return data_source[Symbol(column_name)]
+        throw(ArgumentError("Column '$column_name' not found in source object"))
+    end
+
+    throw(ArgumentError("Unsupported source payload type: $(typeof(data_source))"))
+end
+
+function _load_metric_series_from_loader(source::AbstractDict, role::String)
+    source_type = Symbol(lowercase(string(source["source_type"])))
+    data_source, _ = DataLoader.load_data(Val(source_type), source)
+
+    available_keys = if data_source isa NamedTuple
+        String.(collect(keys(data_source)))
+    elseif data_source isa AbstractDict
+        [string(k) for k in keys(data_source)]
+    else
+        throw(ArgumentError("Unsupported source payload type for $(role): $(typeof(data_source))"))
+    end
+
+    column_name, warnings = _infer_metric_key(available_keys, role, get(source, "column", nothing))
+    values = _column_value_from_source(data_source, column_name)
+    return Float64.(collect(values)), nothing, column_name, warnings
 end
 
 function _infer_metric_column(df, role::String, explicit_column)
@@ -130,14 +209,21 @@ function _load_metric_series(source_like, role::String)
     end
 
     source_type = lowercase(string(get(source, "source_type", "csv")))
-    source_type == "csv" || throw(ArgumentError("Only CSV sources are supported for $(role)"))
-    haskey(source, "path") || throw(ArgumentError("$(role) source must include 'path'"))
 
-    path = resolve_workspace_path(string(source["path"]); must_exist = true)
-    df = CSV.read(path, DataFrame)
-    column_name, infer_warnings = _infer_metric_column(df, role, get(source, "column", nothing))
-    append!(warnings, infer_warnings)
-    return Float64.(df[!, Symbol(column_name)]), path, column_name, warnings
+    if source_type == "csv"
+        haskey(source, "path") || throw(ArgumentError("$(role) source must include 'path'"))
+        path = resolve_workspace_path(string(source["path"]); must_exist = true)
+        df = CSV.read(path, DataFrame)
+        column_name, infer_warnings = _infer_metric_column(df, role, get(source, "column", nothing))
+        append!(warnings, infer_warnings)
+        return Float64.(df[!, Symbol(column_name)]), path, column_name, warnings
+    elseif source_type in ("json", "redis")
+        values, path, column_name, infer_warnings = _load_metric_series_from_loader(source, role)
+        append!(warnings, infer_warnings)
+        return values, path, column_name, warnings
+    end
+
+    throw(ArgumentError("Unsupported source_type for $(role): $source_type. Use csv, json, redis, or data_handle."))
 end
 
 function _write_metrics_artifact(output_dir::String, base_name::String, payload::Dict{String,Any})
@@ -152,6 +238,170 @@ function _write_metrics_artifact(output_dir::String, base_name::String, payload:
         JSON3.write(io, payload)
     end
     return output_path
+end
+
+function _infer_observed_path_from_simulated(simulated_source)
+    simulated_source === nothing && return nothing
+
+    normalized = normalize_string_dict(simulated_source)
+    source_type = lowercase(string(get(normalized, "source_type", "")))
+    source_type == "csv" || return nothing
+    haskey(normalized, "path") || return nothing
+
+    simulation_path = string(normalized["path"])
+    base = splitext(basename(simulation_path))[1]
+    parts = split(base, "_result_"; limit = 2)
+    isempty(parts) && return nothing
+    gauge_id = strip(parts[1])
+    isempty(gauge_id) && return nothing
+
+    candidate_rel = "./data/$(gauge_id).csv"
+    try
+        return resolve_workspace_path(candidate_rel; must_exist = true)
+    catch
+    end
+
+    return nothing
+end
+
+function _resolve_metrics_sources(params)
+    normalized = normalize_string_dict(params)
+    warnings = String[]
+
+    simulated = get(normalized, "simulated", nothing)
+    observed = get(normalized, "observed", nothing)
+
+    if simulated === nothing
+        last_simulation = load_last_result(LAST_SIMULATION_RESULT_HANDLE)
+        if last_simulation isa AbstractDict && haskey(last_simulation, "output_path")
+            simulated = Dict{String,Any}(
+                "source_type" => "csv",
+                "path" => string(last_simulation["output_path"]),
+            )
+            push!(warnings, "Inferred simulated source from last run_simulation output")
+        end
+    end
+
+    if observed === nothing
+        inferred_observed_path = _infer_observed_path_from_simulated(simulated)
+        if !isnothing(inferred_observed_path)
+            observed = Dict{String,Any}(
+                "source_type" => "csv",
+                "path" => inferred_observed_path,
+            )
+            push!(warnings, "Inferred observed source from ./data using simulation file stem")
+        end
+    end
+
+    return simulated, observed, warnings
+end
+
+function _extract_dates_from_forcing_metadata(forcing_meta)
+    if forcing_meta isa NamedTuple
+        return haskey(forcing_meta, :dates) ? forcing_meta[:dates] : nothing
+    elseif forcing_meta isa AbstractDict
+        return get(forcing_meta, "dates", get(forcing_meta, :dates, nothing))
+    end
+
+    return nothing
+end
+
+function _stage2_split_dataset(obs_vec::AbstractVector, forcing_nt::NamedTuple, forcing_meta, params::AbstractDict)
+    has_cal = haskey(params, "calibration_period")
+    has_val = haskey(params, "validation_period")
+    has_cal == has_val || throw(ArgumentError(
+        "calibration_period and validation_period must be provided together",
+    ))
+
+    method = string(get(params, "method", "split_sample"))
+    ratio = Float64(get(params, "ratio", 0.7))
+    warmup = Int(get(params, "warmup", 365))
+
+    split_result = if has_cal
+        DataSplitter.split_data(
+            obs_vec,
+            forcing_nt;
+            method = method,
+            ratio = ratio,
+            warmup = warmup,
+            calibration_period = params["calibration_period"],
+            validation_period = params["validation_period"],
+            dates = _extract_dates_from_forcing_metadata(forcing_meta),
+        )
+    else
+        DataSplitter.split_data(obs_vec, forcing_nt; method = method, ratio = ratio, warmup = warmup)
+    end
+
+    split_warnings = String[]
+    get(split_result, "used_synthetic_dates", false) && push!(
+        split_warnings,
+        "Forcing metadata had no dates; resolved calibration/validation periods on a synthetic timeline",
+    )
+    split_result["val_length"] == 0 && push!(
+        split_warnings,
+        "Split produced an empty test set; stage-2 test metrics are omitted",
+    )
+
+    return split_result, split_warnings
+end
+
+function _build_stage2_evaluation(
+    model,
+    runtime_cfg::AbstractDict,
+    params_used::Dict{String,Float64},
+    split_result::Dict{String,Any},
+    metric_names::Vector{String},
+)
+    params_vec = Simulation._component_vector_from_params(model, params_used)
+    init_states = Simulation._build_init_states(model, get(runtime_cfg, "init_states", nothing))
+    solver_sym = Symbol(uppercase(string(get(runtime_cfg, "solver", "DISCRETE"))))
+    interp_sym = Symbol(uppercase(string(get(runtime_cfg, "interpolation", "LINEAR"))))
+    config_dict = haskey(runtime_cfg, "config") && runtime_cfg["config"] isa AbstractDict ?
+        Dict{String,Any}(string(k) => v for (k, v) in pairs(runtime_cfg["config"])) : Dict{String,Any}()
+
+    train_forcing = split_result["cal_forcing"]
+    train_obs = Float64.(split_result["cal_obs"])
+    train_sim = Simulation._execute_core(
+        model,
+        train_forcing,
+        params_vec,
+        init_states,
+        solver_sym,
+        interp_sym,
+        config_dict,
+    )
+    train_metrics = Metrics.compute_metrics(train_sim, train_obs, metric_names)
+
+    test_metrics = nothing
+    if split_result["val_length"] > 0
+        test_forcing = split_result["val_forcing"]
+        test_obs = Float64.(split_result["val_obs"])
+        test_sim = Simulation._execute_core(
+            model,
+            test_forcing,
+            params_vec,
+            init_states,
+            solver_sym,
+            interp_sym,
+            config_dict,
+        )
+        test_metrics = Metrics.compute_metrics(test_sim, test_obs, metric_names)
+    end
+
+    return Dict{String,Any}(
+        "split_mode" => split_result["split_mode"],
+        "method" => split_result["method"],
+        "warmup" => split_result["warmup"],
+        "train_indices" => split_result["cal_indices"],
+        "test_indices" => split_result["val_indices"],
+        "train_length" => split_result["cal_length"],
+        "test_length" => split_result["val_length"],
+        "metrics" => metric_names,
+        "train_metrics" => train_metrics,
+        "test_metrics" => test_metrics,
+        "test_available" => split_result["val_length"] > 0,
+        "used_synthetic_dates" => get(split_result, "used_synthetic_dates", false),
+    )
 end
 
 compute_metrics_tool = MCPTool(
@@ -169,19 +419,21 @@ compute_metrics_tool = MCPTool(
                 "default" => "./result"
             )
         ),
-        "required" => ["simulated", "observed"]
+        "required" => []
     ),
     handler = function(params)
-        validation_error = validate_required_params(params, ["simulated", "observed"])
-        if !isnothing(validation_error)
-            return create_error_response(validation_error)
-        end
-
         try
-            sim_vec, sim_path, sim_column, sim_warnings = _load_metric_series(params["simulated"], "simulated")
-            obs_vec, obs_path, obs_column, obs_warnings = _load_metric_series(params["observed"], "observed")
+            simulated_source, observed_source, source_warnings = _resolve_metrics_sources(params)
+            simulated_source === nothing &&
+                throw(ArgumentError("Missing required parameter: simulated (or run run_simulation first so compute_metrics can infer it)"))
+            observed_source === nothing &&
+                throw(ArgumentError("Missing required parameter: observed"))
+
+            sim_vec, sim_path, sim_column, sim_warnings = _load_metric_series(simulated_source, "simulated")
+            obs_vec, obs_path, obs_column, obs_warnings = _load_metric_series(observed_source, "observed")
 
             warnings = String[]
+            append!(warnings, source_warnings)
             append!(warnings, sim_warnings)
             append!(warnings, obs_warnings)
 
@@ -222,7 +474,7 @@ compute_metrics_tool = MCPTool(
 # ==============================================================================
 split_data_tool = MCPTool(
     name = "split_data",
-    description = "将时间序列数据划分为校准集和验证集。支持三种策略：recent_first(最新数据优先,适合预测部署)、split_sample(经典分割,适合过程理解)、use_all(全部校准,适合最终部署)。",
+    description = "将时间序列数据划分为校准集和验证集。支持自动划分(recent_first/split_sample/use_all)与显式时间段划分(calibration_period + validation_period)。",
     input_schema = Dict{String,Any}(
         "type" => "object",
         "properties" => Dict{String,Any}(
@@ -230,7 +482,9 @@ split_data_tool = MCPTool(
             "obs_column" => OBS_COLUMN_SCHEMA,
             "method" => SPLIT_METHOD_SCHEMA,
             "ratio" => RATIO_SCHEMA,
-            "warmup" => WARMUP_SCHEMA
+            "warmup" => WARMUP_SCHEMA,
+            "calibration_period" => CALIBRATION_PERIOD_SCHEMA,
+            "validation_period" => VALIDATION_PERIOD_SCHEMA,
         ),
         "required" => ["data_source", "obs_column"]
     ),
@@ -253,24 +507,44 @@ split_data_tool = MCPTool(
         try
             config = params["data_source"]
             obs_col = params["obs_column"]
-            data, _ = DataLoader.load_data(Val(Symbol(config["source_type"])), config)
+            data, metadata = DataLoader.load_data(Val(Symbol(config["source_type"])), config)
             obs_vec = Float64.(data[Symbol(obs_col)])
 
             method = get(params, "method", "split_sample")
             ratio = get(params, "ratio", 0.7)
             warmup = get(params, "warmup", 365)
+            has_periods = haskey(params, "calibration_period") || haskey(params, "validation_period")
+            haskey(params, "calibration_period") == haskey(params, "validation_period") ||
+                throw(ArgumentError("calibration_period and validation_period must be provided together"))
 
-            result = DataSplitter.split_data(obs_vec, data;
-                                             method=method, ratio=Float64(ratio), warmup=Int(warmup))
+            forcing_dates = _extract_dates_from_forcing_metadata(metadata)
+
+            result = if has_periods
+                DataSplitter.split_data(
+                    obs_vec,
+                    data;
+                    method = method,
+                    ratio = Float64(ratio),
+                    warmup = Int(warmup),
+                    calibration_period = params["calibration_period"],
+                    validation_period = params["validation_period"],
+                    dates = forcing_dates,
+                )
+            else
+                DataSplitter.split_data(obs_vec, data; method = method, ratio = Float64(ratio), warmup = Int(warmup))
+            end
+
             # 移除 NamedTuple (不可直接 JSON 序列化)，只保留元信息
             serializable = Dict{String,Any}(
-                "method"      => result["method"],
-                "warmup"      => result["warmup"],
-                "total_length"=> result["total_length"],
-                "cal_length"  => result["cal_length"],
-                "val_length"  => result["val_length"],
+                "method" => result["method"],
+                "split_mode" => result["split_mode"],
+                "warmup" => result["warmup"],
+                "total_length" => result["total_length"],
+                "cal_length" => result["cal_length"],
+                "val_length" => result["val_length"],
                 "cal_indices" => result["cal_indices"],
                 "val_indices" => result["val_indices"],
+                "used_synthetic_dates" => get(result, "used_synthetic_dates", false),
             )
             return TextContent(text = JSON3.write(serializable))
         catch e
@@ -288,10 +562,9 @@ sensitivity_tool = MCPTool(
     input_schema = Dict{String,Any}(
         "type" => "object",
         "properties" => Dict{String,Any}(
-            "model_name" => MODEL_NAME_SCHEMA,
-            "forcing" => FORCING_SCHEMA,
-            "observation" => OBSERVATION_SCHEMA,
-            "obs_column" => OBS_COLUMN_SCHEMA,
+            "model" => MODEL_NAME_SCHEMA,
+            "inputs" => WORKFLOW_INPUTS_REQUIRED_FORCING_OBS,
+            "options" => WORKFLOW_OPTIONS_SCHEMA,
             "method" => SENSITIVITY_METHOD_SCHEMA,
             "n_samples" => N_SAMPLES_SCHEMA,
             "objective" => OBJECTIVE_SCHEMA,
@@ -299,11 +572,10 @@ sensitivity_tool = MCPTool(
             "solver" => SOLVER_SIMPLE_SCHEMA,
             "interpolator" => INTERPOLATOR_SIMPLE_SCHEMA
         ),
-        "required" => ["model_name", "forcing", "observation", "obs_column"]
+        "required" => ["model", "inputs"]
     ),
     handler = function(params)
-        # 验证必需参数
-        validation_error = validate_required_params(params, ["model_name", "forcing", "observation", "obs_column"])
+        validation_error = validate_required_params(params, ["model", "inputs"])
         if !isnothing(validation_error)
             return create_error_response(validation_error)
         end
@@ -318,24 +590,32 @@ sensitivity_tool = MCPTool(
         end
 
         try
-            forcing_config = params["forcing"]
-            obs_config = params["observation"]
-            forcing_nt, _ = DataLoader.load_data(Val(Symbol(forcing_config["source_type"])), forcing_config)
-            obs_data, _ = DataLoader.load_data(Val(Symbol(obs_config["source_type"])), obs_config)
-            obs_vec = Float64.(obs_data[Symbol(params["obs_column"])])
+            request = UnifiedInputs.normalize_workflow_request(params)
+            model_name = request["model"]
+            _, _, model = Simulation._load_model(model_name)
+
+            resolved = UnifiedInputs.resolve_common_inputs(request, model;
+                require_observation = true,
+                require_parameters = false,
+            )
+            forcing_nt = resolved["forcing_nt"]
+            obs_vec = Float64.(resolved["observation"])
+            runtime_cfg = resolved["runtime"]
 
             method = get(params, "method", "morris")
             default_n = method == "sobol" ? 1000 : 100
 
             result = SensitivityAnalysis.run_sensitivity(
-                params["model_name"], forcing_nt, obs_vec;
+                model_name, forcing_nt, obs_vec;
                 method = method,
                 n_samples = Int(get(params, "n_samples", default_n)),
                 objective = get(params, "objective", "NSE"),
                 threshold = Float64(get(params, "threshold", 0.1)),
-                solver_type = get(params, "solver", "DISCRETE"),
-                interp_type = get(params, "interpolator", "LINEAR")
+                solver_type = get(runtime_cfg, "solver", get(params, "solver", "DISCRETE")),
+                interp_type = get(runtime_cfg, "interpolation", get(params, "interpolator", "LINEAR"))
             )
+            result["inference_report"] = resolved["inference_report"]
+            result["warnings"] = resolved["warnings"]
             return TextContent(text = JSON3.write(result))
         catch e
             return create_error_response(e)
@@ -348,7 +628,7 @@ sensitivity_tool = MCPTool(
 # ==============================================================================
 sensitivity_analysis_tool = MCPTool(
     name = "sensitivity_analysis",
-    description = "对水文模型参数进行全局敏感性分析。通过 data_handle 引用已加载数据（需先调用 load_hydro_csv），分析哪些参数对输出有显著影响。支持 morris 和 sobol 方法。",
+    description = "对水文模型参数进行全局敏感性分析。规范输入路径为 load_hydro_csv 生成的 data_handle + model_name。支持 morris 和 sobol 方法。",
     input_schema = Dict{String,Any}(
         "type" => "object",
         "properties" => Dict{String,Any}(
@@ -360,10 +640,6 @@ sensitivity_analysis_tool = MCPTool(
                 "type" => "string",
                 "description" => "水文模型名称（如 exphydro、gr4j 等）"
             ),
-            "model_type" => Dict{String,Any}(
-                "type" => "string",
-                "description" => "model_name 的别名，两者取其一即可"
-            ),
             "parameter_names" => Dict{String,Any}(
                 "type" => "array",
                 "items" => Dict{String,Any}("type" => "string"),
@@ -372,10 +648,6 @@ sensitivity_analysis_tool = MCPTool(
             "parameter_bounds" => Dict{String,Any}(
                 "type" => "object",
                 "description" => "自定义参数边界，格式: {\"param\": [lower, upper]}（可选，默认使用模型内置边界）"
-            ),
-            "parameter_ranges" => Dict{String,Any}(
-                "type" => "object",
-                "description" => "自定义参数范围（parameter_bounds 别名），格式: {\"param\": {\"lower\": x, \"upper\": y}} 或 [lower, upper]"
             ),
             "method" => Dict{String,Any}(
                 "type" => "string",
@@ -397,19 +669,15 @@ sensitivity_analysis_tool = MCPTool(
                 "description" => "敏感性阈值（归一化后，>=此值为敏感参数），默认 0.1"
             )
         ),
-        "required" => ["data_handle"]
+        "required" => ["data_handle", "model_name"]
     ),
     handler = function(params)
-        validation_error = validate_required_params(params, ["data_handle"])
+        validation_error = validate_required_params(params, ["data_handle", "model_name"])
         if !isnothing(validation_error)
             return create_error_response(validation_error)
         end
 
-        # 解析 model_name（支持 model_type 别名）
-        model_name = get(params, "model_name", get(params, "model_type", nothing))
-        if isnothing(model_name)
-            return create_error_response("缺少必需参数: model_name 或 model_type")
-        end
+        model_name = string(params["model_name"])
 
         # 验证枚举
         if haskey(params, "method")
@@ -439,10 +707,9 @@ sensitivity_analysis_tool = MCPTool(
             threshold  = Float64(get(params, "threshold", 0.1))
             objective  = get(params, "objective", "NSE")
 
-            # 自定义参数边界（parameter_bounds 和 parameter_ranges 均支持）
+            # 自定义参数边界
             pb_override = nothing
-            raw_pb_sa = haskey(params, "parameter_ranges") ? params["parameter_ranges"] :
-                        haskey(params, "parameter_bounds") ? params["parameter_bounds"] : nothing
+            raw_pb_sa = haskey(params, "parameter_bounds") ? params["parameter_bounds"] : nothing
             if !isnothing(raw_pb_sa)
                 pb_override = Dict{String,Vector{Float64}}()
                 for (k, v) in raw_pb_sa
@@ -571,129 +838,105 @@ sampling_tool = MCPTool(
 # ==============================================================================
 # 5. 单目标校准工具
 # ==============================================================================
+
+function _validate_model_inputs_forcing(model_name::String, forcing_nt::NamedTuple)
+    resolved_model = Discovery.find_model(model_name)
+    isnothing(resolved_model) && throw(ArgumentError("Model '$model_name' was not found."))
+
+    model_info = Discovery.get_model_info(resolved_model)
+    required_inputs = String.(model_info["inputs"])
+    available_inputs = Set(string.(keys(forcing_nt)))
+    missing_inputs = [input_name for input_name in required_inputs if !(input_name in available_inputs)]
+
+    isempty(missing_inputs) || throw(ArgumentError(
+        "Model '$resolved_model' is missing required inputs: $(join(missing_inputs, ", ")). Inspect the CSV and input mapping before calibration.",
+    ))
+
+    return resolved_model
+end
+
 calibrate_tool = MCPTool(
     name = "calibrate_model",
-    description = "执行水文模型参数自动校准(单目标优化)。支持两种数据输入方式：(1) data_handle（推荐，通过 load_hydro_csv 预加载）；(2) 直接传入 forcing + observation 配置。支持多种算法(BBO/DE/PSO等)。返回最优参数、目标函数值和收敛信息。",
+    description = "执行低成本单目标参数校准（统一 v2 协议：model + inputs），并自动执行二阶段 train/test 评估。支持自动划分与按时间段划分。默认使用轻量优化迭代。",
     input_schema = Dict{String,Any}(
         "type" => "object",
         "properties" => Dict{String,Any}(
-            # --- 数据输入方式 1：data_handle（与 Python HydroAgent 协议兼容）---
-            "data_handle" => Dict{String,Any}(
-                "type" => "string",
-                "description" => "通过 load_hydro_csv 获取的数据句柄（与 model_type 配合使用）"
-            ),
-            "model_type" => Dict{String,Any}(
-                "type" => "string",
-                "description" => "模型类型名称（model_name 的别名，与 data_handle 配合使用）"
-            ),
-            # --- 数据输入方式 2：直接传入配置（原有接口）---
-            "model_name" => MODEL_NAME_SCHEMA,
-            "forcing" => FORCING_SCHEMA,
-            "observation" => OBSERVATION_SCHEMA,
-            "obs_column" => OBS_COLUMN_SCHEMA,
-            # --- 通用校准参数 ---
+            "model" => MODEL_NAME_SCHEMA,
+            "inputs" => WORKFLOW_INPUTS_REQUIRED_FORCING_OBS,
+            "options" => WORKFLOW_OPTIONS_SCHEMA,
             "objective" => OBJECTIVE_SCHEMA,
             "algorithm" => ALGORITHM_SCHEMA,
             "maxiters" => MAXITERS_SCHEMA,
-            "budget" => Dict{String,Any}(
-                "type" => "integer",
-                "description" => "最大迭代次数（maxiters 的别名，两者取其一）"
-            ),
             "n_trials" => N_TRIALS_SCHEMA,
-            "trial_id" => Dict{String,Any}(
-                "type" => "integer",
-                "description" => "本次试验的 ID（用于多次并行试验的追踪），将原样回传到输出"
-            ),
-            "sampling_method" => Dict{String,Any}(
-                "type" => "string",
-                "enum" => ["LHS", "sobol", "random"],
-                "description" => "初始采样方法（当前版本由算法内部处理，此参数记录用）"
-            ),
             "log_transform" => LOG_TRANSFORM_SCHEMA,
-            "use_log_transform" => Dict{String,Any}(
-                "type" => "boolean",
-                "description" => "是否对观测数据做对数变换（log_transform 的别名）",
-                "default" => false
-            ),
             "fixed_params" => FIXED_PARAMS_SCHEMA,
             "param_bounds" => PARAM_BOUNDS_SCHEMA,
-            "parameter_bounds" => Dict{String,Any}(
-                "type" => "object",
-                "description" => "参数边界（param_bounds 的别名），格式: {\"param\": [lower, upper]}"
-            ),
-            "parameter_ranges" => Dict{String,Any}(
-                "type" => "object",
-                "description" => "参数范围（parameter_bounds 的别名），格式: {\"param\": {\"lower\": x, \"upper\": y}} 或 [lower, upper]"
-            ),
-            "max_iterations" => Dict{String,Any}(
-                "type" => "integer",
-                "description" => "最大迭代次数（maxiters/budget 的别名）",
-                "default" => 1000
-            ),
-            "random_seed" => Dict{String,Any}(
-                "type" => "integer",
-                "description" => "随机种子（用于复现，当前版本记录但不强制传入优化器）"
-            ),
             "solver" => SOLVER_SCHEMA,
             "interpolator" => INTERPOLATOR_SCHEMA,
-            "init_states" => INIT_STATES_SCHEMA
+            "init_states" => INIT_STATES_SCHEMA,
+            "method" => SPLIT_METHOD_SCHEMA,
+            "ratio" => RATIO_SCHEMA,
+            "warmup" => WARMUP_SCHEMA,
+            "calibration_period" => CALIBRATION_PERIOD_SCHEMA,
+            "validation_period" => VALIDATION_PERIOD_SCHEMA,
+            "metrics" => METRICS_SCHEMA,
         ),
-        "required" => []  # 通过运行时验证，支持两种接口
+        "required" => ["model", "inputs"]
     ),
     handler = function(params)
-        # ---- 解析数据来源 ----
-        use_handle = haskey(params, "data_handle")
+        validation_error = validate_required_params(params, ["model", "inputs"])
+        !isnothing(validation_error) && return create_error_response(validation_error)
 
-        # 解析 model_name（支持 model_type 别名）
-        model_name = get(params, "model_name", get(params, "model_type", nothing))
-        if isnothing(model_name)
-            return create_error_response("缺少参数: model_name 或 model_type")
-        end
+        model_name = string(params["model"])
 
-        # 验证枚举参数
         if haskey(params, "objective")
-            enum_error = validate_enum_param(params, "objective",
-                ["KGE","NSE","LogNSE","LogKGE","PBIAS","R2","RMSE"], "KGE")
-            if !isnothing(enum_error)
-                return create_error_response(enum_error)
+            try
+                params["objective"] = _normalize_named_choice(
+                    params["objective"],
+                    "objective",
+                    OBJECTIVE_NAME_ALIASES,
+                    Set(["KGE", "NSE", "LogNSE", "LogKGE", "PBIAS", "R2", "RMSE"]),
+                )
+            catch e
+                return create_error_response(e)
             end
         end
         if haskey(params, "algorithm")
-            enum_error = validate_enum_param(params, "algorithm",
-                    ["BBO","DE","PSO","CMAES","ECA","dds","DDS"], "BBO")
-            if !isnothing(enum_error)
-                return create_error_response(enum_error)
+            try
+                params["algorithm"] = _normalize_named_choice(
+                    params["algorithm"],
+                    "algorithm",
+                    SINGLE_ALGORITHM_ALIASES,
+                    Set(["BBO", "DE", "PSO", "CMAES", "ECA"]),
+                )
+            catch e
+                return create_error_response(e)
             end
         end
 
-        try
-            # ---- 加载 forcing + obs ----
-            forcing_nt = nothing
-            obs_vec    = nothing
+        if haskey(params, "method")
+            enum_error = validate_enum_param(params, "method", ["recent_first", "split_sample", "use_all"], "split_sample")
+            !isnothing(enum_error) && return create_error_response(enum_error)
+        end
 
-            if use_handle
-                handle = params["data_handle"]
-                if !has_data(handle)
-                    return create_error_response("data_handle '$handle' 不存在，请先调用 load_hydro_csv 加载数据")
-                end
-                stored = get_data(handle)
-                if !(stored isa Dict) || !haskey(stored, "obs") || !haskey(stored, "forcing_nt")
-                    return create_error_response("data_handle '$handle' 不含 forcing 数据，请使用 load_hydro_csv 加载完整数据集")
-                end
-                obs_vec    = Float64.(stored["obs"])
-                forcing_nt = stored["forcing_nt"]
-            else
-                # 原有直接配置接口
-                validation_error = validate_required_params(params, ["forcing", "observation", "obs_column"])
-                if !isnothing(validation_error)
-                    return create_error_response("未找到 data_handle，尝试直接配置接口，但: " * validation_error)
-                end
-                forcing_config = params["forcing"]
-                obs_config     = params["observation"]
-                forcing_nt, _ = DataLoader.load_data(Val(Symbol(forcing_config["source_type"])), forcing_config)
-                obs_data, _   = DataLoader.load_data(Val(Symbol(obs_config["source_type"])), obs_config)
-                obs_vec = Float64.(obs_data[Symbol(params["obs_column"])])
-            end
+        try
+            request = UnifiedInputs.normalize_workflow_request(params)
+            _, _, model = Simulation._load_model(model_name)
+            resolved = UnifiedInputs.resolve_common_inputs(request, model;
+                require_observation = true,
+                require_parameters = false,
+            )
+
+            forcing_nt = resolved["forcing_nt"]
+            obs_vec = Float64.(resolved["observation"])
+            forcing_meta = get(resolved["metadata"], "forcing", nothing)
+            split_result, split_warnings = _stage2_split_dataset(obs_vec, forcing_nt, forcing_meta, params)
+
+            train_forcing = split_result["cal_forcing"]
+            train_obs = split_result["cal_obs"]
+            resolved_model = _validate_model_inputs_forcing(model_name, train_forcing)
+
+            runtime_cfg = resolved["runtime"]
 
             # ---- 解析校准参数 ----
             fixed = Dict{String,Float64}()
@@ -703,11 +946,8 @@ calibrate_tool = MCPTool(
                 end
             end
 
-            # 合并 param_bounds / parameter_bounds / parameter_ranges（多种别名支持）
             pb = nothing
-            raw_pb = haskey(params, "param_bounds")       ? params["param_bounds"] :
-                     haskey(params, "parameter_bounds")   ? params["parameter_bounds"] :
-                     haskey(params, "parameter_ranges")   ? params["parameter_ranges"] : nothing
+            raw_pb = haskey(params, "param_bounds") ? params["param_bounds"] : nothing
             if !isnothing(raw_pb)
                 pb = Dict{String,Vector{Float64}}()
                 for (k, v) in raw_pb
@@ -729,23 +969,13 @@ calibrate_tool = MCPTool(
                 end
             end
 
-            # budget / max_iterations 是 maxiters 的别名
-            maxiters_val = Int(get(params, "maxiters",
-                             get(params, "max_iterations",
-                             get(params, "budget", 1000))))
-
-            # use_log_transform 是 log_transform 的别名
-            log_transform_val = Bool(get(params, "log_transform",
-                                     get(params, "use_log_transform", false)))
-
-            # dds / DDS 映射到 BBO（Dynamically Dimensioned Search 近似实现）
-            algorithm_val = let raw_alg = get(params, "algorithm", "BBO")
-                uppercase(raw_alg) in ["DDS"] ? "BBO" : raw_alg
-            end
+            maxiters_val = Int(get(params, "maxiters", 12))
+            log_transform_val = Bool(get(params, "log_transform", false))
+            algorithm_val = string(get(params, "algorithm", "BBO"))
 
             t_start = time()
             result = Calibration.calibrate_model(
-                model_name, forcing_nt, obs_vec;
+                resolved_model, train_forcing, train_obs;
                 algorithm     = algorithm_val,
                 maxiters      = maxiters_val,
                 objective     = get(params, "objective", "KGE"),
@@ -753,8 +983,8 @@ calibrate_tool = MCPTool(
                 fixed_params  = fixed,
                 param_bounds  = pb,
                 n_trials      = Int(get(params, "n_trials", 1)),
-                solver_type   = get(params, "solver", "DISCRETE"),
-                interp_type   = get(params, "interpolator", "LINEAR"),
+                solver_type   = get(runtime_cfg, "solver", get(params, "solver", "DISCRETE")),
+                interp_type   = get(runtime_cfg, "interpolation", get(params, "interpolator", "LINEAR")),
                 init_states_dict = ist
             )
             runtime_seconds = time() - t_start
@@ -769,10 +999,6 @@ calibrate_tool = MCPTool(
             result["iterations_used"] = maxiters_val
             # runtime_seconds
             result["runtime_seconds"] = round(runtime_seconds; digits=2)
-            # trial_id（如果传入了）
-            if haskey(params, "trial_id")
-                result["trial_id"] = params["trial_id"]
-            end
             # converged：以 best_objective 是否超过阈值作简单判断
             best_obj_val = get(result, "best_objective", 0.0)
             result["converged"] = best_obj_val >= 0.7
@@ -786,6 +1012,25 @@ calibrate_tool = MCPTool(
                     result["convergence_curve"] = first_trial["objective_history"]
                 end
             end
+
+            metric_names = _normalize_metric_names(get(params, "metrics", String["NSE", "KGE", "RMSE"]))
+            best_params = Dict{String,Float64}(string(k) => Float64(v) for (k, v) in pairs(result["best_params"]))
+            result["stage2_evaluation"] = _build_stage2_evaluation(
+                model,
+                runtime_cfg,
+                best_params,
+                split_result,
+                metric_names,
+            )
+
+            result["status"] = "success"
+            warnings = String[]
+            append!(warnings, String.(resolved["warnings"]))
+            append!(warnings, split_warnings)
+            result["warnings"] = warnings
+            result["inference_report"] = resolved["inference_report"]
+
+            store_last_result(LAST_CALIBRATION_RESULT_HANDLE, result)
 
             return TextContent(text = JSON3.write(result))
         catch e
@@ -803,10 +1048,9 @@ calibrate_multi_tool = MCPTool(
     input_schema = Dict{String,Any}(
         "type" => "object",
         "properties" => Dict{String,Any}(
-            "model_name" => MODEL_NAME_SCHEMA,
-            "forcing" => FORCING_SCHEMA,
-            "observation" => OBSERVATION_SCHEMA,
-            "obs_column" => OBS_COLUMN_SCHEMA,
+            "model" => MODEL_NAME_SCHEMA,
+            "inputs" => WORKFLOW_INPUTS_REQUIRED_FORCING_OBS,
+            "options" => WORKFLOW_OPTIONS_SCHEMA,
             "objectives" => OBJECTIVES_SCHEMA,
             "algorithm" => MULTI_ALGORITHM_SCHEMA,
             "maxiters" => MAXITERS_SCHEMA,
@@ -817,30 +1061,39 @@ calibrate_multi_tool = MCPTool(
             "interpolator" => INTERPOLATOR_SCHEMA,
             "init_states" => INIT_STATES_SCHEMA
         ),
-        "required" => ["model_name", "forcing", "observation", "obs_column", "objectives"]
+        "required" => ["model", "inputs", "objectives"]
     ),
     handler = function(params)
-        # 验证必需参数
-        validation_error = validate_required_params(params, ["model_name", "forcing", "observation", "obs_column", "objectives"])
+        validation_error = validate_required_params(params, ["model", "inputs", "objectives"])
         if !isnothing(validation_error)
             return create_error_response(validation_error)
         end
 
-        # 验证枚举参数
         if haskey(params, "algorithm")
-            enum_error = validate_enum_param(params, "algorithm",
-                ["NSGA2", "NSGA3"], "NSGA2")
-            if !isnothing(enum_error)
-                return create_error_response(enum_error)
+            try
+                params["algorithm"] = _normalize_named_choice(
+                    params["algorithm"],
+                    "algorithm",
+                    MULTI_ALGORITHM_ALIASES,
+                    Set(["NSGA2", "NSGA3"]),
+                )
+            catch e
+                return create_error_response(e)
             end
         end
 
         try
-            forcing_config = params["forcing"]
-            obs_config = params["observation"]
-            forcing_nt, _ = DataLoader.load_data(Val(Symbol(forcing_config["source_type"])), forcing_config)
-            obs_data, _ = DataLoader.load_data(Val(Symbol(obs_config["source_type"])), obs_config)
-            obs_vec = Float64.(obs_data[Symbol(params["obs_column"])])
+            request = UnifiedInputs.normalize_workflow_request(params)
+            model_name = string(request["model"])
+            _, _, model = Simulation._load_model(model_name)
+            resolved = UnifiedInputs.resolve_common_inputs(request, model;
+                require_observation = true,
+                require_parameters = false,
+            )
+
+            forcing_nt = resolved["forcing_nt"]
+            obs_vec = Float64.(resolved["observation"])
+            runtime_cfg = resolved["runtime"]
 
             fixed = Dict{String,Float64}()
             if haskey(params, "fixed_params")
@@ -866,17 +1119,19 @@ calibrate_multi_tool = MCPTool(
             end
 
             result = Calibration.calibrate_multiobjective(
-                params["model_name"], forcing_nt, obs_vec;
+                model_name, forcing_nt, obs_vec;
                 objectives = String.(params["objectives"]),
                 algorithm = get(params, "algorithm", "NSGA2"),
                 maxiters = Int(get(params, "maxiters", 1000)),
                 population_size = Int(get(params, "population_size", 50)),
                 fixed_params = fixed,
                 param_bounds = pb,
-                solver_type = get(params, "solver", "DISCRETE"),
-                interp_type = get(params, "interpolator", "LINEAR"),
+                solver_type = get(runtime_cfg, "solver", get(params, "solver", "DISCRETE")),
+                interp_type = get(runtime_cfg, "interpolation", get(params, "interpolator", "LINEAR")),
                 init_states_dict = ist
             )
+            result["warnings"] = resolved["warnings"]
+            result["inference_report"] = resolved["inference_report"]
             return TextContent(text = JSON3.write(result))
         catch e
             return create_error_response(e)
@@ -898,17 +1153,17 @@ diagnose_tool = MCPTool(
             "convergence_threshold" => CONVERGENCE_THRESHOLD_SCHEMA,
             "plateau_window" => PLATEAU_WINDOW_SCHEMA
         ),
-        "required" => ["calibration_result"]
+        "required" => []
     ),
     handler = function(params)
-        # 验证必需参数
-        validation_error = validate_required_params(params, ["calibration_result"])
-        if !isnothing(validation_error)
-            return create_error_response(validation_error)
-        end
-
         try
-            cal_result = params["calibration_result"]
+            cal_result = get(params, "calibration_result", nothing)
+            if cal_result === nothing
+                cal_result = load_last_result(LAST_CALIBRATION_RESULT_HANDLE)
+                cal_result === nothing &&
+                    throw(ArgumentError("Missing required parameter: calibration_result"))
+            end
+
             # 确保是 Dict{String,Any}
             if !(cal_result isa Dict)
                 cal_result = Dict{String,Any}(string(k) => v for (k, v) in cal_result)
@@ -1040,21 +1295,19 @@ init_calibration_setup_tool = MCPTool(
     input_schema = Dict{String,Any}(
         "type" => "object",
         "properties" => Dict{String,Any}(
-            "model_name" => MODEL_NAME_SCHEMA,
-            "forcing" => FORCING_SCHEMA,
-            "observation" => OBSERVATION_SCHEMA,
-            "obs_column" => OBS_COLUMN_SCHEMA,
+            "model" => MODEL_NAME_SCHEMA,
+            "inputs" => WORKFLOW_INPUTS_REQUIRED_FORCING_OBS,
+            "options" => WORKFLOW_OPTIONS_SCHEMA,
             "goal" => GOAL_SCHEMA,
             "budget" => BUDGET_SCHEMA,
             "sensitivity_samples" => SENSITIVITY_SAMPLES_SCHEMA,
             "solver" => SOLVER_SIMPLE_SCHEMA,
             "interpolator" => INTERPOLATOR_SIMPLE_SCHEMA
         ),
-        "required" => ["model_name", "forcing", "observation", "obs_column"]
+        "required" => ["model", "inputs"]
     ),
     handler = function(params)
-        # 验证必需参数
-        validation_error = validate_required_params(params, ["model_name", "forcing", "observation", "obs_column"])
+        validation_error = validate_required_params(params, ["model", "inputs"])
         if !isnothing(validation_error)
             return create_error_response(validation_error)
         end
@@ -1077,18 +1330,22 @@ init_calibration_setup_tool = MCPTool(
         end
 
         try
-            forcing_config = params["forcing"]
-            obs_config = params["observation"]
-            forcing_nt, _ = DataLoader.load_data(Val(Symbol(forcing_config["source_type"])), forcing_config)
-            obs_data, _ = DataLoader.load_data(Val(Symbol(obs_config["source_type"])), obs_config)
-            obs_vec = Float64.(obs_data[Symbol(params["obs_column"])])
+            request = UnifiedInputs.normalize_workflow_request(params)
+            model_name = string(request["model"])
+            _, _, model = Simulation._load_model(model_name)
+            resolved = UnifiedInputs.resolve_common_inputs(request, model;
+                require_observation = true,
+                require_parameters = false,
+            )
 
-            model_name = params["model_name"]
+            forcing_nt = resolved["forcing_nt"]
+            obs_vec = Float64.(resolved["observation"])
+            runtime_cfg = resolved["runtime"]
             goal = get(params, "goal", "general_fit")
             budget = get(params, "budget", "medium")
             n_sens = Int(get(params, "sensitivity_samples", 50))
-            solver_type = get(params, "solver", "DISCRETE")
-            interp_type = get(params, "interpolator", "LINEAR")
+            solver_type = get(runtime_cfg, "solver", get(params, "solver", "DISCRETE"))
+            interp_type = get(runtime_cfg, "interpolation", get(params, "interpolator", "LINEAR"))
 
             # Step 1: 敏感性分析
             sens_result = SensitivityAnalysis.run_sensitivity(
@@ -1164,6 +1421,8 @@ init_calibration_setup_tool = MCPTool(
                 ),
                 "goal" => goal,
                 "budget" => budget,
+                "warnings" => resolved["warnings"],
+                "inference_report" => resolved["inference_report"],
             )
 
             return TextContent(text = JSON3.write(setup))
@@ -1207,9 +1466,9 @@ compute_diagnostics_full_tool = MCPTool(
                 "type" => "string",
                 "description" => "（可选）数据句柄，仅用于上下文记录，不影响诊断计算"
             ),
-            "model_type" => Dict{String,Any}(
+            "model_name" => Dict{String,Any}(
                 "type" => "string",
-                "description" => "（可选）模型类型，仅用于上下文记录"
+                "description" => "（可选）模型名称，仅用于上下文记录"
             ),
             "objective_threshold" => Dict{String,Any}(
                 "type" => "number",
@@ -1344,8 +1603,8 @@ compute_diagnostics_full_tool = MCPTool(
             if haskey(params, "data_handle")
                 result["data_handle"] = params["data_handle"]
             end
-            if haskey(params, "model_type")
-                result["model_type"] = params["model_type"]
+            if haskey(params, "model_name")
+                result["model_name"] = params["model_name"]
             end
 
             return TextContent(text = JSON3.write(result))

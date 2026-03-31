@@ -51,26 +51,36 @@ function run_sensitivity(model_name::String, forcing_nt::NamedTuple,
     all_param_names = string.(HydroModels.get_param_names(model))
     wrapper_params = Base.invokelatest(m -> m.model_parameters, model_module)
 
-    # 构建所有参数的默认边界
+    # 注意：wrapper_params 的顺序不一定与 get_param_names(model) 一致。
+    # 必须按参数名匹配边界，避免错配导致大量无效参数组合。
+    bounds_by_name = Dict{String,Tuple{Float64,Float64}}()
+    for p in wrapper_params
+        pname = string(p)
+        bounds = try
+            b = HydroModels.getbounds(p)
+            (Float64(b[1]), Float64(b[2]))
+        catch
+            (0.0, 10.0)  # 默认范围
+        end
+        bounds_by_name[pname] = bounds
+    end
+
     all_lb = Float64[]
     all_ub = Float64[]
-    for (i, p) in enumerate(wrapper_params)
-        pname = all_param_names[i]
-        # 优先使用 param_bounds_override，否则用模型默认范围
-        if !isnothing(param_bounds_override) && haskey(param_bounds_override, pname)
+    for pname in all_param_names
+        # 优先使用 param_bounds_override，否则按参数名使用模型默认范围
+        bounds = if !isnothing(param_bounds_override) && haskey(param_bounds_override, pname)
             b = param_bounds_override[pname]
-            push!(all_lb, Float64(b[1]))
-            push!(all_ub, Float64(b[2]))
+            (Float64(b[1]), Float64(b[2]))
         else
-            bounds = try
-                b = HydroModels.getbounds(p)
-                (Float64(b[1]), Float64(b[2]))
-            catch
-                (0.0, 10.0)  # 默认范围
-            end
-            push!(all_lb, bounds[1])
-            push!(all_ub, bounds[2])
+            get(bounds_by_name, pname, (0.0, 10.0))
         end
+
+        bounds[1] <= bounds[2] ||
+            throw(ArgumentError("参数 '$pname' 边界无效: lower=$(bounds[1]) > upper=$(bounds[2])"))
+
+        push!(all_lb, bounds[1])
+        push!(all_ub, bounds[2])
     end
 
     # 应用参数名筛选 (param_names_filter)
@@ -137,6 +147,7 @@ function run_sensitivity(model_name::String, forcing_nt::NamedTuple,
     return Dict{String,Any}(
         "model_name"    => canonical,
         "param_names"   => param_names,
+        "param_bounds"  => Dict(param_names[i] => [lb[i], ub[i]] for i in eachindex(param_names)),
         "sensitivities" => sensitivities,
         "calibratable"  => calibratable,
         "fixed"         => fixed,

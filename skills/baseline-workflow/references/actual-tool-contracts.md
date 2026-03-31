@@ -1,333 +1,224 @@
 # Actual Tool Contracts
 
-This document records the current input and output contracts for MCP tools used by the `runoff-forecast` skill.
+This document records the current canonical tool contracts used by the `baseline-workflow` skill.
 
-## run_simulation
+## inspect_hydro_data
 
-### Input schema
+### Input shape
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "model": {"type": "string"},
-    "source_type": {"type": "string", "enum": ["csv", "json"]},
-    "path": {"type": "string"},
-    "params": {"type": "object"},
-    "period": {"type": "array", "items": {"type": "string"}},
-    "warmup": {"type": "integer"},
-    "solver": {"type": "string"},
-    "interpolation": {"type": "string"},
-    "input_mapping": {"type": "object"},
-    "output_dir": {"type": "string"},
-    "seed": {"type": "integer"}
+  "source": {
+    "source_type": "csv",
+    "path": "./data/03604000.csv"
   },
-  "required": ["model", "source_type"]
-}
-```
-
-### Output format
-
-```json
-{
-  "status": "success",
-  "run_id": "uuid",
   "model": "exphydro",
-  "output_path": "./result/simulation/forcing_result_20260329120000.csv",
-  "metadata_path": "./result/simulation/forcing_result_20260329120000.metadata.json",
-  "summary_path": "./result/run_summary_20260329120000.md",
-  "params_used": {"f": 0.01, "Smax": 250.0},
-  "params_source": "random",
-  "params_seed": 1234,
-  "run_info": {
-    "model": "exphydro",
-    "solver": "DISCRETE",
-    "interpolation": "LINEAR",
-    "runtime_seconds": 0.45
-  },
-  "warnings": []
+  "intended_use": "calibration"
 }
 ```
 
-### Key behaviors
+### Output highlights
 
-- Defaults `output_dir` to `./result`
-- Writes simulation artifacts into `./result/simulation/`
-- Returns randomized parameter values and the seed when parameters are omitted
-- Infers common forcing aliases such as `prcp(mm/day)` -> `P`
-- Still records `period` and `warmup` as metadata only
+- `forcing_elements`: generic `P/T/Ep` coverage report
+- `observed_runoff`: detected observed discharge column if present
+- `model_check`: model-specific required-input coverage when `model` is provided
+- `blocking_issues`: reasons to stop the workflow immediately
+- `readiness`: booleans derived from model-required inputs and intended use
+
+### Important behavior
+
+- Generic `P/T/Ep` detection is informational.
+- Workflow blocking is driven by model-required inputs when `model` is provided.
+- `calibration`, `validation`, and `metrics` readiness also require observed runoff.
 
 ---
 
-## compute_metrics
+## run_simulation
 
-### Input schema
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "simulated": {"type": "object"},
-    "observed": {"type": "object"},
-    "metrics": {"type": "array", "items": {"type": "string"}},
-    "output_dir": {"type": "string"}
-  },
-  "required": ["simulated", "observed"]
-}
-```
-
-Each source object may use either:
-
-```json
-{"source_type": "csv", "path": "./result/simulation/foo.csv"}
-```
-
-or:
-
-```json
-{"data_handle": "hydro_foo"}
-```
-
-### Output format
+### Canonical input shape
 
 ```json
 {
-  "status": "success",
-  "metrics": {
-    "NSE": 0.82,
-    "KGE": 0.78,
-    "RMSE": 12.34,
-    "PBIAS": -5.2
+  "model": "exphydro",
+  "inputs": {
+    "forcing": {
+      "source_type": "csv",
+      "path": "./data/03604000.csv"
+    }
   },
-  "sample_size": 365,
-  "simulated_column": "Result",
-  "observed_column": "flow(mm)",
-  "output_path": "./result/metrics/foo_metrics_20260329120000.json",
-  "warnings": []
+  "output": {
+    "result_source_type": "csv",
+    "output_dir": "./result"
+  }
 }
 ```
 
-### Key behaviors
+### Redis output shape
 
-- Accepts either file paths or data handles
-- Infers `Result` for simulated CSV and common discharge aliases for observed CSV
-- Writes a metrics artifact into `./result/metrics/`
-- Truncates to the shorter series if lengths differ and returns a warning
+```json
+{
+  "model": "exphydro",
+  "inputs": {
+    "forcing": {
+      "source_type": "csv",
+      "path": "./data/03604000.csv"
+    }
+  },
+  "output": {
+    "result_source_type": "redis",
+    "result_host": "127.0.0.1",
+    "result_port": 6379
+  }
+}
+```
+
+### Important behavior
+
+- `inputs.forcing` is required.
+- Legacy flat fields such as top-level `source_type` and `path` are no longer part of the public contract.
+- `output.result_source_type` is the result-sink selector.
+- `inputs.parameters` accepts these practical forms:
+  - inline object: `{"f":0.03,"Smax":500,...}`
+  - source descriptor: `json/csv/data_handle/calibration_result`
+  - partial object is allowed in simulation and missing parameters are filled with random valid values
+- runtime option values support Chinese/English aliases and are normalized to canonical values (`ODE` / `DISCRETE`, `LINEAR` / `CONSTANT` / `DIRECT`).
 
 ---
 
 ## load_hydro_csv
 
-### Input schema
+### Canonical input shape
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "path": {"type": "string"},
-    "data_type": {"type": "string", "enum": ["forcing", "observed", "simulated"]},
-    "validation": {"type": "boolean"},
-    "obs_column": {"type": "string"},
-    "prcp_column": {"type": "string"},
-    "temp_column": {"type": "string"},
-    "pet_column": {"type": "string"},
-    "simulated_column": {"type": "string"}
-  },
-  "required": ["path", "data_type"]
+  "path": "./data/03604000.csv",
+  "data_type": "forcing"
 }
 ```
 
-### Output format
+### Output highlights
 
-```json
-{
-  "status": "success",
-  "data_handle": "hydro_03604000",
-  "metadata": {
-    "rows": 365,
-    "columns": ["date", "prcp(mm/day)", "tmean(C)", "pet(mm)", "flow(mm)"],
-    "start_date": "2020-01-01",
-    "end_date": "2020-12-31"
-  },
-  "warnings": []
-}
-```
+- `data_handle`
+- `metadata.rows`
+- `metadata.columns`
+- `warnings`
 
-### Key behaviors
+### Important behavior
 
-- Returns a handle, not the data itself
-- Preserves richer combined forcing + observation payloads when those columns exist
-- Remains suitable for calibration and sensitivity workflows
+- Stores any resolvable canonical forcing inputs among `P`, `T`, and `Ep`.
+- Stores observed runoff when a matching observed column exists.
+- Returns a handle, not the raw data.
 
 ---
 
-## find_model
+## calibrate_model
 
-### Input schema
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "query": {"type": "string"}
-  },
-  "required": ["query"]
-}
-```
-
-### Output format
+### Canonical input shape
 
 ```json
 {
-  "status": "success",
-  "query": "exp",
-  "matches": [
-    {
-      "name": "exphydro",
-      "full_name": "exphydro",
-      "match_score": 0.75
-    }
-  ]
-}
-```
-
----
-
-## get_model_info
-
-### Input schema
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "model": {"type": "string"}
-  },
-  "required": ["model"]
-}
-```
-
-### Output format
-
-```json
-{
-  "status": "success",
   "model": "exphydro",
-  "full_name": "exphydro",
-  "description": "Model description",
-  "inputs": ["P", "T", "Ep"],
-  "outputs": ["Qt"],
-  "parameter_count": 6
+  "inputs": {
+    "forcing": {
+      "source_type": "csv",
+      "path": "./data/03604000.csv"
+    },
+    "observation": {
+      "source_type": "csv",
+      "path": "./data/03604000.csv"
+    }
+  },
+  "objective": "KGE",
+  "algorithm": "BBO",
+  "maxiters": 80,
+  "n_trials": 1
 }
 ```
+
+### Important behavior
+
+- `model` and `inputs` are required.
+- `inputs` must include both forcing and observed runoff sources for calibration.
+- The tool validates model-required inputs before entering optimization.
+- The baseline workflow should keep `maxiters` small unless the user explicitly asks for a broader search.
 
 ---
 
-## get_model_parameters
+## run_validation
 
-### Input schema
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "model": {"type": "string"}
-  },
-  "required": ["model"]
-}
-```
-
-### Output format
+### Canonical input shape
 
 ```json
 {
-  "status": "success",
   "model": "exphydro",
-  "parameters": [
-    {
-      "name": "f",
-      "description": "Parameter description",
-      "min": 0.0,
-      "max": 1.0,
-      "default": null,
-      "unit": "-"
+  "inputs": {
+    "forcing": {
+      "source_type": "csv",
+      "path": "./data/03604000.csv"
+    },
+    "observation": {
+      "source_type": "csv",
+      "path": "./data/03604000.csv"
+    },
+    "parameters": {
+      "source_type": "json",
+      "data": {
+        "f": 0.03,
+        "Smax": 500,
+        "Qmax": 20,
+        "Df": 2.0,
+        "Tmax": 1.0,
+        "Tmin": -1.5
+      }
     }
-  ]
-}
-```
-
----
-
-## list_workspace_files
-
-### Input schema
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "directory": {"type": "string"},
-    "extensions": {"type": "array", "items": {"type": "string"}},
-    "include_size": {"type": "boolean"},
-    "include_modified": {"type": "boolean"}
   },
-  "required": ["directory"]
-}
-```
-
-### Output format
-
-```json
-{
-  "status": "success",
-  "directory": "./data",
-  "count": 2,
-  "files": [
-    {
-      "name": "forcing.csv",
-      "path": "./data/forcing.csv",
-      "size_bytes": 12345,
-      "modified": "2026-03-29T12:00:00"
-    }
-  ]
-}
-```
-
-### Key behaviors
-
-- Lists files only, not directory contents recursively
-- Auto-creates the requested directory when it is missing and returns `created_directory: true`
-- Rejects paths outside the current workspace root
-
----
-
-## clear_session_cache
-
-### Input schema
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "include_handles": {"type": "boolean"}
+  "calibration_period": {
+    "start_index": 1,
+    "end_index": 700
+  },
+  "validation_period": {
+    "start_index": 701,
+    "end_index": 1200
   }
 }
 ```
 
-### Output format
+### Parameter source options
+
+- inline object in `inputs.parameters` (no `source_type` required)
+- source descriptor with `source_type=json/csv/data_handle/calibration_result`
+- direct calibration result object using keys such as `best_params`, `best_parameters`, `calibrated_params`, or `params_used`
+- same-session fallback: if `inputs.parameters` is omitted, MCP can reuse the latest calibration/simulation parameters when available
+
+### Important behavior
+
+- `model`, `inputs.forcing`, `inputs.observation`, `calibration_period`, `validation_period` are required.
+- `inputs.parameters` is strongly recommended; omission only works when same-session fallback is available.
+- if parameter values are partial, MCP first attempts same-session completion; unresolved required parameters cause fail-fast errors.
+- if both periods use `start/end` dates but forcing has no date column, MCP can synthesize a timeline from requested boundaries and returns a warning; use `start_index/end_index` for strict reproducibility.
+
+---
+
+## compute_metrics
+
+### Canonical input shape
 
 ```json
 {
-  "status": "success",
-  "backend": "redis",
-  "prefix": "hydro:session:...:",
-  "cleared_count": 3,
-  "cleared_handles": ["hydro_03604000", "obs_03604000"]
+  "simulated": {
+    "source_type": "csv",
+    "path": "./result/simulation/foo.csv"
+  },
+  "observed": {
+    "source_type": "csv",
+    "path": "./data/03604000.csv"
+  },
+  "output_dir": "./result"
 }
 ```
 
-### Key behaviors
+### Important behavior
 
-- Clears transient session cache entries only
-- Does not delete files written to `./result`
-- Should be called at the end of a `runoff-forecast` conversation
+- Accepts either file paths or data handles.
+- Infers common simulated and observed column names when they are not provided.
+- Writes a metrics artifact into `./result/metrics/`.

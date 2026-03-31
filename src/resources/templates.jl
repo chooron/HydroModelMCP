@@ -38,6 +38,15 @@ const RESOURCE_TEMPLATE_METADATA = [
         "example_uri" => "hydro://models/gr4j/knowledge",
     ),
     Dict(
+        "name" => "llm_hint",
+        "uri_template" => "hydro://hints/{feature}",
+        "mime_type" => "application/json",
+        "description" => "Alias-aware, lightweight LLM usage hints for improving MCP call accuracy.",
+        "availability" => "dynamically readable through the template provider",
+        "fallback_tools" => ["resources/read hydro://guides/llm-hints"],
+        "example_uri" => "hydro://hints/calibration",
+    ),
+    Dict(
         "name" => "calibration_result",
         "uri_template" => "hydro://calibration/results/{result_id}",
         "mime_type" => "application/json",

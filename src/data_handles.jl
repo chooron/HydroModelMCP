@@ -29,6 +29,9 @@ const SESSION_CACHE_PREFIX = get(
 )
 const SESSION_CACHE_BACKEND = Ref{Symbol}(:uninitialized)
 
+const LAST_SIMULATION_RESULT_HANDLE = "__last_simulation_result__"
+const LAST_CALIBRATION_RESULT_HANDLE = "__last_calibration_result__"
+
 function _redis_connection()
     return RedisConnection(host = SESSION_CACHE_HOST, port = SESSION_CACHE_PORT)
 end

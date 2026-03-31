@@ -1,119 +1,132 @@
 ---
-name: runoff-forecast
-description: interactively execute hydrological runoff simulations inside a project workspace with an mcp service. use when chatgpt should ask for or accept a target model, default to the current project's data folder for inputs, let mcp generate random parameters when none are supplied, run one simulation, optionally compute metrics when observed discharge is available, export outputs and a short summary into the project's result folder, and hand off only missing-data issues to a separate data-discovery skill instead of searching databases or the web.
+name: baseline-workflow
+description: test HydroModelMCP behavior inside the current workspace. use when chatgpt should validate an mcp workflow, trace each tool/resource/template step, avoid opening raw csv/json data files in the conversation, stop immediately on any error or contract mismatch, and report the exact failing step instead of forcing a final successful result.
 ---
 
-# Runoff Forecast
+# Baseline Workflow Test
 
-Use this skill as a workspace executor, not as a data-discovery skill.
+Use this skill to test the MCP service itself.
+
+Do not optimize for a polished final hydrology result. Optimize for accurate workflow validation, transparent trace logging, and immediate failure surfacing.
 
 ## Fixed operating rules
 
 - Do not browse the web.
-- Do not search databases or external systems from this skill.
-- Assume the current project workspace is the execution boundary.
+- Do not search databases or external systems.
+- Treat the current project workspace as the execution boundary.
 - Default input directory: `./data`
 - Default output directory: `./result`
-- Default intermediate cache: transient session cache, preferably Redis-backed when available
-- Keep the interaction minimal: ask for the model only if the user did not name one.
-- Do not read raw CSV contents into the conversation when MCP can consume file paths directly.
-- If parameters are not supplied, allow MCP to generate a random parameter set and label the run as exploratory.
-- Do not use model resource URIs such as hydro://models/<model_name>/info, hydro://models/<model_name>/parameters, or hydro://models/<model_name>/variables. Resolve model metadata through tools only.
+- Do not read raw contents from workspace data or artifact files such as `.csv`, `.json`, `.metadata.json`, `.txt`, or similar files into the conversation.
+- It is acceptable to pass file paths such as CSV or JSON paths directly into MCP tools when the tool contract supports that.
+- Use `list_workspace_files` to confirm file existence or candidate paths instead of opening files.
+- Prefer MCP tools and MCP resources over ad hoc file inspection.
+- Every MCP interaction must be recorded in the final execution trace.
+- If any MCP call returns an error, contract mismatch, ambiguous blocking condition, or missing required field, stop immediately.
+- After a blocking failure, do not continue with downstream calls just to obtain a final result.
+- Do not fabricate success, metrics, or artifact summaries after a blocking failure.
+- Call `clear_session_cache` only at the normal end of a successful or intentionally completed test path.
 
 Read these references when needed:
 - `references/workspace-execution-workflow.md`
 - `references/mcp-minimum-contract.md`
 - `references/actual-tool-contracts.md`
 
-## resources, templates, and prompts in this mcp service
+## Available MCP surfaces
 
-### read-only resources available
+### read-only resources
 
-- `hydro://models/catalog` for compact model browsing and preferred discovery-tool hints
-- `hydro://guides/model-discovery` for model-browsing and tool-vs-resource guidance
-- `hydro://guides/algorithms` for calibration algorithm selection guidance
-- `hydro://guides/objectives` for objective-function selection guidance
-- `hydro://guides/metrics` for metric behavior and direction hints
-- `hydro://guides/data-handles` for deciding between file paths and reusable handles
-- `hydro://guides/runoff-workspace` for workspace defaults and execution order
-- `hydro://guides/result-artifacts` for `./result` layout and stored-result notes
-- `hydro://meta/resource-templates` for template metadata and server behavior notes
-- `hydro://calibration/results` for stored calibration result identifiers
-- `hydro://sensitivity/results` for stored sensitivity result identifiers
-- `hydro://ensemble/results` for stored ensemble result identifiers
+- `hydro://models/catalog`
+- `hydro://models/knowledge-index`
+- `hydro://models/knowledge-coverage`
+- `hydro://guides/model-discovery`
+- `hydro://guides/algorithms`
+- `hydro://guides/objectives`
+- `hydro://guides/metrics`
+- `hydro://guides/data-handles`
+- `hydro://guides/runoff-workspace`
+- `hydro://guides/result-artifacts`
+- `hydro://meta/resource-templates`
+- `hydro://calibration/results`
+- `hydro://sensitivity/results`
+- `hydro://ensemble/results`
 
-Resource usage rules for this skill:
-- treat resources as optional context, not as the main execution path
-- keep model-detail access tool-first: `find_model`, `get_model_info`, `get_model_parameters`, `get_model_variables`
-- do not replace model resolution with `resources/list` or `resources/read`
+### resource templates
 
-### resource template policy
-
-Declared templates in the current service:
+- `hydro://models/{model_name}/info`
+- `hydro://models/{model_name}/parameters`
+- `hydro://models/{model_name}/variables`
+- `hydro://models/{model_name}/knowledge`
 - `hydro://calibration/results/{result_id}`
 - `hydro://sensitivity/results/{result_id}`
+- `hydro://ensemble/results/{result_id}`
 
-Execution policy:
-- treat template URIs as capability metadata unless a concrete `resources/read` call succeeds
-- do not promise historical-result retrieval through template URIs by default
-- if a user asks for a historical result, first check IDs from `hydro://calibration/results`, then report the current retrieval limitation when no reliable read path exists
+### prompts
 
-### prompt usage (optional)
+- `hydrology_expert_review`
+- `runoff_workspace_workflow`
+- `calibration_workflow_plan`
+- `hydrology_result_review`
 
-Available MCP prompt:
-- `hydrology_expert_review` with required `task` and optional `context`
+### key tools for input readiness
 
-When to use it:
-- use only when the user asks for expert critique, method justification, or risk review
-- do not block a requested simulation run on prompt invocation
+- `inspect_hydro_data` to check generic hydrometeorological coverage, model-required inputs, and observed runoff availability before downstream execution
 
-Recommended English prompt payload:
+### usage policy
 
-```json
-{
-  "name": "hydrology_expert_review",
-  "arguments": {
-    "task": "Review whether this exploratory runoff simulation is decision-ready.",
-    "context": "Model: exphydro; forcing: ./data/forcing.csv; observed discharge: unavailable; warnings: alias mapping was applied."
-  }
-}
-```
-
-Expected response focus:
-1. key assumptions and uncertainties
-2. recommended workflow or tool sequence
-3. critical parameter and data checks
-4. risks that may invalidate conclusions
+- For tool-path validation, use tools directly.
+- For template-path validation, explicitly use `resources/templates/list` and `resources/read` with a concrete template URI.
+- For normal model resolution, keep the workflow tool-first: `find_model`, `get_model_info`, `get_model_parameters`, `get_model_variables`.
+- Use `hydro://models/{model_name}/knowledge` only as supplementary knowledge, not as the runtime contract source.
 
 ## Interaction pattern
 
-1. If the user has not named a model, ask only: which hydrological model should be run?
-2. Once a model is known, proceed autonomously with workspace defaults.
-3. Ask another question only if MCP cannot resolve a blocking issue from the workspace and default conventions.
+1. If the user already named a model, workflow, or tool path to test, start from that target.
+2. If a model is required but missing, ask only: which hydrological model should be tested?
+3. Ask another question only when a required local file path cannot be resolved safely from workspace defaults.
 
 ## Default conventions
 
 - Project root: current workspace root
-- Forcing source: prefer an explicit path; otherwise resolve from `./data`
-- Preferred forcing filenames, in order: `forcing.csv`, `meteo.csv`, `meteorology.csv`, `input.csv`
-- Optional observed discharge filenames, in order: `obs.csv`, `observed.csv`, `discharge.csv`, `streamflow.csv`
-- Parameter source: random exploratory parameters from MCP when the user gives none
-- Execution mode: single-run simulation
+- Default baseline mode: one end-to-end simulation-path test
+- Forcing source resolution order:
+  1. explicit user path
+  2. `./data/forcing.csv`
+  3. `./data/meteo.csv`
+  4. `./data/meteorology.csv`
+  5. `./data/input.csv`
+  6. `list_workspace_files(directory="./data")` if confirmation is needed
+- Optional observed discharge resolution order:
+  1. explicit user path
+  2. `./data/obs.csv`
+  3. `./data/observed.csv`
+  4. `./data/discharge.csv`
+  5. `./data/streamflow.csv`
+- Parameter source: random exploratory parameters when the user gives none
 - Output location: `./result`
 
-If multiple plausible files exist and no safe choice is possible, stop and return a minimal handoff note for the data-discovery skill.
+If multiple plausible files exist and there is no safe default, stop immediately and report the ambiguity as a failure.
 
 ## Core workflow
 
 ### 1) normalize the request
 
-Extract these fields when present:
-- model name
+Extract when present:
+- target model
+- target workflow or tool path
 - explicit forcing file path
 - explicit observed discharge path
-- optional period, warmup, solver, interpolation, or parameter values
+- optional period, warmup, solver, interpolation, seed, or parameter values
 
-### 2) resolve the model
+### 2) choose the test mode
+
+Use one of these modes:
+- `simulation-baseline`: default when the user asks to run a model in the workspace
+- `calibration-baseline`: when the user asks to test parameter optimization or calibration readiness
+- `template-check`: when the user asks to validate resource templates or resource reads
+- `prompt-check`: when the user asks to validate MCP prompts
+- `result-retrieval-check`: when the user asks to inspect stored results by result id
+
+### 3) resolve the model when needed
 
 Use tools in this order:
 1. `find_model`
@@ -121,120 +134,149 @@ Use tools in this order:
 3. `get_model_info`
 4. `get_model_parameters`
 
-Do not substitute model-resolution steps with `resources/list` or `resources/read`.
+Stop immediately if model resolution fails or becomes ambiguous.
 
-### 3) resolve workspace data
+### 4) resolve workspace inputs when needed
 
 Use this order:
-1. explicit user path if given
+1. explicit user path
 2. default file conventions in `./data`
-3. `list_workspace_files` if you need to confirm candidates in `./data` or `./result`
+3. `list_workspace_files`
 
-If no forcing file can be resolved, stop with a short handoff message that states:
-- required forcing file is missing from `./data`
-- the selected model
-- the required input contract from `get_model_info`
-- that a data-discovery skill should provide the correct local file path
+Do not open file contents.
 
-### 4) run the simulation
+### 4b) inspect input readiness before downstream execution
 
-Use `run_simulation` as the default execution path.
+Before `run_simulation`, `calibrate_model`, `run_validation`, or `compute_metrics` when the source is a workspace file:
+1. call `inspect_hydro_data`
+2. pass the source as a structured descriptor such as `{"source": {"source_type": "csv", "path": "./data/03604000.csv"}}`
+3. set `intended_use` to the planned workflow such as `simulation`, `calibration`, or `validation`
+4. pass `model` when model-specific input coverage should be checked
 
-Execution rules:
+Interpretation rules:
+- if the selected model has missing required inputs, stop immediately
+- if `intended_use` is `calibration` or `validation` and observed runoff is unavailable, stop immediately and tell the user to provide observed discharge data
+- do not proceed to downstream MCP calls after a failed readiness check
+
+### 5) execute the requested MCP path
+
+#### simulation-baseline
+
+- call `inspect_hydro_data` first unless a trusted recent inspection result already exists in the same conversation
+- call `run_simulation`
 - pass `model`
-- pass the resolved forcing file path with `source_type="csv"`
-- omit `params` when the user did not provide them so MCP can randomize
-- allow MCP to infer common forcing column aliases such as `prcp(mm/day)` -> `P`
-- preserve `run_id`, `seed`, `solver`, `interpolation`, `warnings`, and `params_used` when available
+- pass the resolved forcing path through the canonical structured `forcing` object
+- omit `params` when the user gave none so MCP can randomize
+- if the user provides partial parameters, allow MCP to complete missing ones and record completion warnings
+- normalize solver/interpolation choices to canonical enums even when user phrasing is Chinese or English aliases
+- preserve `run_id`, `seed`, `solver`, `interpolation`, `warnings`, `params_used`, and output paths when returned
+- call `compute_metrics` only when an observed discharge path is available and the test explicitly needs evaluation
 
-### 5) evaluate the run
+#### calibration-baseline
 
-If observed discharge is available in the workspace, call `compute_metrics` after the simulation.
+- call `inspect_hydro_data` first with `intended_use="calibration"`
+- if the check passes, call `load_hydro_csv`
+- call `calibrate_model` with the unified v2 contract (`model + inputs`, with forcing and observation sources)
+- keep the default budget small unless the user explicitly asks for a broader search
+- call `diagnose_calibration` after calibration when the run succeeds
 
-If observed discharge is not available:
-- do not fabricate accuracy metrics
-- provide only a simulation-quality assessment from runtime diagnostics and summary statistics
-- state clearly that no observation-based evaluation was possible
+#### template-check
 
-### 6) outputs
+- call `resources/templates/list` first
+- read one or more concrete template URIs with `resources/read`
+- record whether the template was discoverable and whether the concrete read succeeded
 
-Current MCP behavior:
-- simulation outputs are written under `./result/simulation/`
-- a machine-readable metadata file is written next to the simulation CSV
-- a short summary markdown file is written under `./result/`
-- metrics artifacts are written under `./result/metrics/` when `compute_metrics` is used
-- transient data handles are stored in session cache rather than temporary files
+#### prompt-check
 
-### 6b) end-of-conversation cleanup
+- call `prompts/list` or `prompts/get` only when the client path supports prompt validation
+- record the prompt name, arguments, and whether prompt expansion succeeded
 
-Before ending the conversation, call `clear_session_cache`.
+#### result-retrieval-check
 
-Cleanup rules:
-- do this only after all requested outputs have been written or reported
-- this clears transient Redis or in-memory session handles only
-- do not claim that `./result` artifacts were deleted
+- use the index resources first:
+  - `hydro://calibration/results`
+  - `hydro://sensitivity/results`
+  - `hydro://ensemble/results`
+- only then test a concrete result template URI
 
-### 7) respond in this fixed structure
+### 6) stopping rule
 
-# Runoff run summary
+Stop immediately when any of these occurs:
+- MCP tool error
+- resource read error
+- template read error
+- prompt error
+- model not found
+- missing required workspace input
+- data inspection failed
+- ambiguous input selection
+- missing required output field in a response
+- inconsistent or clearly invalid response structure
 
-## Model
-- selected model
-- why it matched
-- whether the run is exploratory or constrained
+Do not continue to later steps after a blocking failure.
 
-## Workspace inputs
-- forcing path
-- observed discharge path or `not available`
-- directories used: `./data` and `./result`
+### 7) successful end
 
-## Execution
-- tool used
-- parameter source
-- period, warmup, solver, interpolation if available
-- run id or output handle if available
+Only on success or intentional completion:
+- report the full trace
+- report returned artifact paths if any
+- call `clear_session_cache` when transient session handles were created and cleanup is appropriate
 
-## Results
-- compact runoff summary
-- key warnings or anomalies
+## Response structure
 
-## Evaluation
-- metric results when observation exists
-- otherwise state that only runtime and behavior evaluation was possible
+Always respond in this structure.
 
-## Outputs written
-- files or folders written to `./result`
+# MCP workflow test summary
+
+## Test target
+- requested workflow or mode
+- selected model or `not required`
+- workspace scope used
+
+## Execution trace
+For every MCP interaction, record:
+- step number
+- interface used: tool, resource, template, or prompt
+- exact name or URI
+- purpose of the step
+- key inputs summarized as names, ids, and file paths only
+- outcome: `success`, `warning`, or `error`
+- important returned identifiers, warnings, or artifact paths
+
+## Status
+- overall status: `passed`, `failed`, or `partial`
+- final stopping reason
+
+## Outputs observed
+- returned artifact paths, resource URIs, result ids, or `none`
+
+## Failure
+- if failed: failure label
+- failing step
+- exact MCP interface that failed
+- minimal error summary
+- explicitly state which downstream steps were not attempted because execution stopped
 
 ## Next action
-Give one small next step only.
+- give the smallest useful next check only
 
-## Failure modes
+## Failure labels
 
-Use one of these explicit failure labels when needed:
+Use one of these labels when needed:
 - model not found
 - forcing file not found in workspace
 - multiple forcing files need resolution
-- simulation failed
+- mcp tool error
+- resource read error
+- template read error
+- prompt error
+- data inspection failed
+- contract mismatch
 - evaluation skipped because observation is unavailable
-
-For each failure, give the smallest actionable unblock message.
 
 ## Data handling strategy
 
-This skill passes file paths to MCP tools without loading CSV contents into the LLM context.
-
-### Option 1: Direct file paths
-
-When the user provides or you resolve a file path:
-1. Pass the absolute path directly to `run_simulation`
-2. Example: `{"model": "exphydro", "source_type": "csv", "path": "./data/forcing.csv"}`
-3. MCP loads the data internally and writes artifacts into `./result`
-
-### Option 2: Data handle pattern
-
-When working with data across multiple operations:
-1. Call `load_hydro_csv`
-2. Receive a `data_handle` identifier
-3. Pass the handle to `calibrate_model`, `sensitivity_analysis`, or `compute_metrics`
-4. `run_simulation` still uses direct file paths rather than data handles
-5. Before closing the conversation, call `clear_session_cache` to remove transient session handles
+- Pass file paths to MCP tools without loading file contents into the LLM context.
+- It is acceptable to pass CSV or JSON file paths directly to MCP when supported by the tool contract.
+- Do not inspect generated result CSV or JSON artifacts directly in this skill.
+- If the user explicitly asks to inspect artifact contents, stop and state that this skill is for MCP workflow testing rather than artifact-content reading.

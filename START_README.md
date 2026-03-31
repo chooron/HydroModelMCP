@@ -38,6 +38,16 @@ JULIA_HTTP_ALLOWED_ORIGINS=*
 
 查看 [USAGE.md](USAGE.md) 获取完整使用指南。
 
+### MCP 工具请求协议说明
+
+当前 HydroModelMCP 的模拟/验证/集合/率定工作流采用统一 v2 请求结构：
+
+- 必填：`model`、`inputs`
+- 可选：`output`、`options`
+- `inputs` 下按角色组织：`forcing`、`observation`、`parameters`、`runtime`
+
+完整示例请参考主文档 `README.md` 的 `Unified v2 Workflow Protocol` 章节。
+
 ## 🧪 测试连接
 
 ```bash

@@ -23,8 +23,11 @@ const runoff_workspace_guide_resource = MCPResource(
             "clear_session_cache",
         ],
         "notes" => [
-            "When params are omitted, run_simulation generates a random valid parameter set and labels the run through params_source=random.",
-            "Simulation outputs are written under ./result/simulation and summaries under ./result.",
+            "Use unified v2 requests: model + inputs (+ optional output/options) for run_simulation and related workflows.",
+            "When inputs.parameters is omitted, run_simulation generates a random valid parameter set and labels the run through params_source=random.",
+            "inputs.parameters supports inline objects, json/csv/data_handle/calibration_result sources; validation can reuse same-session parameters when explicit parameters are omitted.",
+            "Responses include inference_report and warnings so clients can inspect automatic forcing and observation mapping.",
+            "Simulation outputs are written under ./result/simulation and summaries under ./result unless output.result_source_type is redis.",
         ],
     ),
 )
