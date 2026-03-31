@@ -28,6 +28,7 @@ const runoff_workspace_guide_resource = MCPResource(
             "inputs.parameters supports inline objects, json/csv/data_handle/calibration_result sources; validation can reuse same-session parameters when explicit parameters are omitted.",
             "Responses include inference_report and warnings so clients can inspect automatic forcing and observation mapping.",
             "Simulation outputs are written under ./result/simulation and summaries under ./result unless output.result_source_type is redis.",
+            "If client SDK cannot directly call protocol surfaces (resources/templates/list, prompts/list), use list_mcp_surfaces for an equivalent lightweight listing.",
         ],
     ),
 )

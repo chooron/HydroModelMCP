@@ -35,6 +35,7 @@ const LLM_HINT_SPECS = [
         "accuracy_tips" => [
             "Prefer canonical forcing names (P/T/Ep) or provide options.input_mapping",
             "Use explicit observation column when available to reduce inference ambiguity",
+            "With options.strict_infer=true, ambiguous top candidates are rejected instead of auto-fallback",
         ],
     ),
     Dict{String,Any}(
@@ -157,6 +158,7 @@ const LLM_HINT_SPECS = [
         "accuracy_tips" => [
             "Record expected vs actual tool call sequence for each case",
             "Do not hide contract mismatch behind fallback behavior",
+            "If protocol listing endpoints are inaccessible in your client, call list_mcp_surfaces as fallback",
         ],
     ),
 ]

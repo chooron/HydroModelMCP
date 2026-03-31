@@ -138,6 +138,57 @@ function _name_score(target::String, candidate::String, aliases::Vector{String})
     return 0.0, "none"
 end
 
+function _forcing_inference_ambiguity(
+    target::String,
+    selected_col::String,
+    selected_method::String,
+    selected_conf::Float64,
+    scored_candidates::Vector{Tuple{Float64,String,String}},
+)
+    if selected_method in ("partial_alias", "none")
+        return true, "inference method '$selected_method' is not allowed in strict mode"
+    end
+
+    if selected_conf < 0.65
+        return true, "best confidence below strict threshold"
+    end
+
+    length(scored_candidates) <= 1 && return false, ""
+    second_conf, second_col, _ = scored_candidates[2]
+    gap = selected_conf - second_conf
+
+    if gap <= 0.05
+        return true, "top candidates '$selected_col' and '$second_col' are too close (delta=$(round(gap, digits = 3)))"
+    end
+
+    return false, ""
+end
+
+function _observation_inference_ambiguity(
+    best_name::String,
+    best_score::Float64,
+    best_method::String,
+    scored::Vector{Tuple{Float64,String,String}},
+)
+    if best_method in ("partial_alias", "none")
+        return true, "inference method '$best_method' is not allowed in strict mode"
+    end
+
+    if best_score < 0.65
+        return true, "best confidence below strict threshold"
+    end
+
+    length(scored) <= 1 && return false, ""
+    second_score, second_name, _ = scored[2]
+    gap = best_score - second_score
+
+    if gap <= 0.05
+        return true, "top candidates '$best_name' and '$second_name' are too close (delta=$(round(gap, digits = 3)))"
+    end
+
+    return false, ""
+end
+
 function _jsonish_to_object(value)
     if value isa AbstractDict
         return _as_dict(value)
@@ -891,9 +942,12 @@ function _infer_forcing_mapping(
             push!(warnings, "Input '$target' reuses column '$selected' because no unique candidates were available")
         end
 
-        strict_infer && selected_conf < 0.65 && throw(ArgumentError(
-            "Low-confidence forcing inference for '$target' (column '$selected', confidence=$(round(selected_conf, digits = 3))). Provide options.input_mapping or better column names.",
-        ))
+        if strict_infer
+            ambiguous, reason = _forcing_inference_ambiguity(target, selected, selected_method, selected_conf, scored_candidates)
+            ambiguous && throw(ArgumentError(
+                "Strict infer rejected forcing inference for '$target': $reason. Selected '$selected' (confidence=$(round(selected_conf, digits = 3))). Provide options.input_mapping or explicit canonical columns.",
+            ))
+        end
 
         if selected_conf < 0.65
             push!(warnings, "Low-confidence inference: mapped '$target' to '$selected' (confidence=$(round(selected_conf, digits = 3)))")
@@ -999,9 +1053,12 @@ function _infer_observation_column(
     sort!(scored; by = x -> x[1], rev = true)
     best_score, best_name, best_method = scored[1]
 
-    strict_infer && best_score < 0.65 && throw(ArgumentError(
-        "Low-confidence observed runoff inference for column '$best_name' (confidence=$(round(best_score, digits = 3))). Provide inputs.observation.column explicitly.",
-    ))
+    if strict_infer
+        ambiguous, reason = _observation_inference_ambiguity(best_name, best_score, best_method, scored)
+        ambiguous && throw(ArgumentError(
+            "Strict infer rejected observed runoff inference: $reason. Selected '$best_name' (confidence=$(round(best_score, digits = 3))). Provide inputs.observation.column explicitly.",
+        ))
+    end
 
     candidates = [
         Dict("column" => cname, "confidence" => score, "method" => method)

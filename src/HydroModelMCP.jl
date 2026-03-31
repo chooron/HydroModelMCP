@@ -56,6 +56,7 @@ include("tools/data_loading.jl")
 include("tools/simulation.jl")
 include("tools/discovery.jl")
 include("tools/workspace.jl")
+include("tools/mcp_surface.jl")
 include("tools/session_cache.jl")
 include("tools/calibration.jl")
 include("tools/ensemble.jl")
@@ -111,6 +112,7 @@ const ALL_TOOLS = MCPTool[
     get_model_variables_tool,
     get_model_parameters_tool,
     list_workspace_files_tool,
+    list_mcp_surfaces_tool,
     clear_session_cache_tool,
     simulation_tool,
     ensemble_parameter_tool,

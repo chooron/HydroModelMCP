@@ -151,6 +151,36 @@ end
         ))
     end
 
+    @testset "strict_infer rejects ambiguous forcing inference" begin
+        base = joinpath(dirname(@__DIR__), ".tmp_tests")
+        mkpath(base)
+        mktempdir(base; prefix = "strict-infer-") do tmpdir
+            ambiguous_path = joinpath(tmpdir, "ambiguous_columns.csv")
+            open(ambiguous_path, "w") do io
+                write(io, "precipitation,temp,epx,flow(mm)\n")
+                for i in 1:32
+                    write(io, "$(1.0 + 0.1 * i),$(5.0 + 0.05 * i),$(0.3 + 0.01 * i),$(2.0 + 0.02 * i)\n")
+                end
+            end
+
+            response = HydroModelMCP.simulation_tool.handler(Dict(
+                "model" => "exphydro",
+                "inputs" => Dict(
+                    "forcing" => Dict(
+                        "source_type" => "csv",
+                        "path" => ambiguous_path,
+                    ),
+                ),
+                "options" => Dict(
+                    "strict_infer" => true,
+                ),
+            ))
+
+            @test startswith(response.text, "Error:")
+            @test occursin("Strict infer rejected forcing inference", response.text)
+        end
+    end
+
     @testset "run_simulation writes result artifacts and exposes random params" begin
         payload = _parse_tool_json(HydroModelMCP.simulation_tool.handler(_sim_request(source_file;
             output_dir = result_dir,

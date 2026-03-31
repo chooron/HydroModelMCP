@@ -1,4 +1,5 @@
 using ModelContextProtocol
+using JSON3
 using .HydroModelMCP
 using .HydroModelMCP.Discovery
 
@@ -14,6 +15,7 @@ using .HydroModelMCP.Discovery
     @test "list_models" in tool_names
     @test "inspect_hydro_data" in tool_names
     @test "list_workspace_files" in tool_names
+    @test "list_mcp_surfaces" in tool_names
     @test "clear_session_cache" in tool_names
 
     @test "hydrology_expert_review" in prompt_names
@@ -151,6 +153,13 @@ using .HydroModelMCP.Discovery
     hint_catalog_payload = HydroModelMCP.llm_hint_catalog_payload()
     @test hint_catalog_payload["count"] >= 1
     @test any(s -> s["feature"] == "calibration_stage2", hint_catalog_payload["features"])
+
+    mcp_surface_payload = JSON3.read(HydroModelMCP.list_mcp_surfaces_tool.handler(Dict()).text, Dict{String,Any})
+    @test mcp_surface_payload["status"] == "success"
+    @test haskey(mcp_surface_payload, "resource_templates")
+    @test any(==("hydro://hints/{feature}"), mcp_surface_payload["resource_templates"])
+    @test haskey(mcp_surface_payload, "prompts")
+    @test any(==("runoff_workspace_workflow"), mcp_surface_payload["prompts"])
 
     expert_text = first(HydroModelMCP.Experts.hydro_expert_prompt.messages).content.text
     processed = ModelContextProtocol.process_template(expert_text, Dict("task" => "Assess runoff simulation", "context" => "Short record"))
