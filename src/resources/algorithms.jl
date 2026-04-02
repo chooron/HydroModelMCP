@@ -82,13 +82,18 @@ const algorithm_guide_resource = MCPResource(
         "recommendations" => [
             Dict(
                 "condition" => "Low budget (<500 evals) or high dimensions (>10 params)",
-                "algorithm" => "BBO",
-                "reason" => "Efficient when evaluations are limited.",
+                "algorithm" => "DDS",
+                "reason" => "Strategy alias for low-budget mode (mapped to stable DE backend).",
             ),
             Dict(
-                "condition" => "High budget (>5000 evals) and low dimensions (<10 params)",
-                "algorithm" => "PSO",
-                "reason" => "Supports broader exploration when budget allows.",
+                "condition" => "High budget (>5000 evals)",
+                "algorithm" => "SCE",
+                "reason" => "Strategy alias for high-budget exploration (mapped to stable PSO backend).",
+            ),
+            Dict(
+                "condition" => "Medium budget with moderate dimensions",
+                "algorithm" => "BBO",
+                "reason" => "Balanced default when DDS/SCE conditions are not dominant.",
             ),
             Dict(
                 "condition" => "Multiple objectives",
@@ -97,6 +102,22 @@ const algorithm_guide_resource = MCPResource(
             ),
         ],
         "algorithms" => Dict(
+            "DDS" => Dict(
+                "name" => "Dynamically Dimensioned Search",
+                "name_zh" => "动态维度搜索",
+                "best_for" => "Low budget or high-dimensional calibration",
+                "aliases" => ["DDS", "dynamically dimensioned search", "动态维度搜索"],
+                "backend" => "DE",
+                "implementation_note" => "Exposed as strategy alias; execution uses library DE backend for stability.",
+            ),
+            "SCE" => Dict(
+                "name" => "Shuffled Complex Evolution",
+                "name_zh" => "复合体进化",
+                "best_for" => "High-budget global calibration",
+                "aliases" => ["SCE", "shuffled complex evolution", "复合体进化"],
+                "backend" => "PSO",
+                "implementation_note" => "Exposed as strategy alias; execution uses library PSO backend for stability.",
+            ),
             "BBO" => Dict(
                 "name" => "Biogeography-Based Optimization",
                 "name_zh" => "生物地理优化",

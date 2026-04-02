@@ -47,6 +47,15 @@ const RESOURCE_TEMPLATE_METADATA = [
         "example_uri" => "hydro://hints/calibration",
     ),
     Dict(
+        "name" => "workflow_playbook",
+        "uri_template" => "hydro://workflows/{intent}",
+        "mime_type" => "application/json",
+        "description" => "Compact per-intent tool playbook for lightweight LLM routing.",
+        "availability" => "dynamically readable through the template provider",
+        "fallback_tools" => ["resources/read hydro://guides/llm-quickstart", "list_mcp_surfaces"],
+        "example_uri" => "hydro://workflows/simulation",
+    ),
+    Dict(
         "name" => "calibration_result",
         "uri_template" => "hydro://calibration/results/{result_id}",
         "mime_type" => "application/json",
@@ -100,6 +109,7 @@ const resource_templates_resource = MCPResource(
             "If a new stored result is created after startup, rebuild or restart the server to expose its exact resource URI.",
         ],
         "preferred_model_tools" => ["find_model", "get_model_info", "get_model_parameters", "get_model_variables"],
+        "preferred_storage_tools" => ["list_stored_results", "get_stored_result"],
     ),
 )
 

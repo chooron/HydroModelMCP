@@ -1,5 +1,4 @@
 using JSON3
-using NPZ
 using Redis
 import UUIDs
 using .HydroModelMCP
@@ -43,34 +42,6 @@ function _sim_request(source_file::String; model::String = "exphydro", output_di
     end
 
     return req
-end
-
-function _write_mock_camels_dataset_for_sim(path::String; gage_ids = [1013500, 3604000], n_steps::Int = 48)
-    n_gauges = length(gage_ids)
-    forcings = zeros(Float64, n_gauges, n_steps, 3)
-    target = zeros(Float64, n_gauges, n_steps, 1)
-    attributes = ones(Float64, n_gauges, 13)
-
-    for (gauge_idx, _) in enumerate(gage_ids)
-        for step in 1:n_steps
-            forcings[gauge_idx, step, 1] = 1.0 + 0.02 * step + 0.1 * gauge_idx
-            forcings[gauge_idx, step, 2] = 3.0 + 0.01 * step
-            forcings[gauge_idx, step, 3] = 0.4 + 0.005 * step
-            target[gauge_idx, step, 1] = 2.0 + 0.03 * step + 0.2 * gauge_idx
-        end
-
-        attributes[gauge_idx, 12] = 100.0 + 10.0 * gauge_idx
-        attributes[gauge_idx, 13] = 120.0 + 10.0 * gauge_idx
-    end
-
-    npzwrite(path, Dict{String,Any}(
-        "gage_ids" => collect(gage_ids),
-        "forcings" => forcings,
-        "target" => target,
-        "attributes" => attributes,
-    ))
-
-    return path
 end
 
 function _redis_available(; host::String = "127.0.0.1", port::Int = 6379)
@@ -127,8 +98,8 @@ end
         @test normalized["output"]["result_source_type"] == "redis"
     end
 
-    @testset "Normalization supports camels forcing workflow" begin
-        normalized = HydroModelMCP._normalize_simulation_request(Dict(
+    @testset "Normalization rejects retired camels forcing workflow" begin
+        @test_throws ArgumentError HydroModelMCP._normalize_simulation_request(Dict(
             "model" => "exphydro",
             "inputs" => Dict(
                 "forcing" => Dict(
@@ -137,10 +108,36 @@ end
                 ),
             ),
         ))
+    end
 
-        @test normalized["inputs"]["forcing"]["source_type"] == "camels"
-        @test normalized["inputs"]["forcing"]["gage_id"] == 1013500
+    @testset "Normalization supports caravan forcing workflow" begin
+        normalized = HydroModelMCP._normalize_simulation_request(Dict(
+            "model" => "exphydro",
+            "inputs" => Dict(
+                "forcing" => Dict(
+                    "source_type" => "caravan",
+                    "dataset_name" => "camels",
+                    "gauge_id" => "01013500",
+                ),
+            ),
+        ))
+
+        @test normalized["inputs"]["forcing"]["source_type"] == "caravan"
+        @test normalized["inputs"]["forcing"]["dataset_name"] == "camels"
+        @test normalized["inputs"]["forcing"]["gauge_id"] == "01013500"
         @test normalized["output"]["result_source_type"] == "csv"
+    end
+
+    @testset "Normalization requires dataset_name for caravan forcing workflow" begin
+        @test_throws ArgumentError HydroModelMCP._normalize_simulation_request(Dict(
+            "model" => "exphydro",
+            "inputs" => Dict(
+                "forcing" => Dict(
+                    "source_type" => "caravan",
+                    "gauge_id" => "01013500",
+                ),
+            ),
+        ))
     end
 
     @testset "Normalization rejects legacy flat forcing fields" begin
@@ -198,23 +195,24 @@ end
         @test haskey(payload["inference_report"], "forcing")
     end
 
-    @testset "run_simulation supports camels forcing source" begin
+    @testset "run_simulation supports caravan forcing source" begin
         base = joinpath(dirname(@__DIR__), ".tmp_tests")
         mkpath(base)
-        mktempdir(base; prefix = "camels-sim-") do tmpdir
-            npz_path = _write_mock_camels_dataset_for_sim(joinpath(tmpdir, "mock_camels.npz"))
+        mktempdir(base; prefix = "caravan-sim-") do tmpdir
+            caravan_root, _, _ = _write_mock_caravan_dataset_root(tmpdir; n_steps = 48)
 
             payload = _parse_tool_json(HydroModelMCP.simulation_tool.handler(Dict(
                 "model" => "exphydro",
                 "inputs" => Dict(
                     "forcing" => Dict(
-                        "source_type" => "camels",
-                        "dataset_path" => npz_path,
-                        "gage_id" => 1013500,
+                        "source_type" => "caravan",
+                        "dataset_root" => caravan_root,
+                        "dataset_name" => "camels",
+                        "gauge_id" => "01013500",
                     ),
                     "runtime" => Dict(
                         "source_type" => "json",
-                        "data" => Dict("seed" => 2026),
+                        "data" => Dict("seed" => 2027),
                     ),
                 ),
                 "output" => Dict("output_dir" => result_dir),
@@ -222,7 +220,7 @@ end
 
             @test payload["status"] == "success"
             @test payload["params_source"] == "random"
-            @test payload["params_seed"] == 2026
+            @test payload["params_seed"] == 2027
             @test isfile(payload["output_path"])
             @test isfile(payload["metadata_path"])
         end
@@ -266,6 +264,82 @@ end
         @test haskey(payload["metrics"], "KGE")
         @test payload["sample_size"] > 0
         @test isfile(payload["output_path"])
+    end
+
+    @testset "compute_metrics accepts Caravan observed source and same-session simulation inference" begin
+        base = joinpath(dirname(@__DIR__), ".tmp_tests")
+        mkpath(base)
+        mktempdir(base; prefix = "caravan-metrics-") do tmpdir
+            caravan_root, _, _ = _write_mock_caravan_dataset_root(tmpdir; n_steps = 48)
+
+            simulation_payload = _parse_tool_json(HydroModelMCP.simulation_tool.handler(Dict(
+                "model" => "exphydro",
+                "inputs" => Dict(
+                    "forcing" => Dict(
+                        "source_type" => "caravan",
+                        "dataset_root" => caravan_root,
+                        "dataset_name" => "camels",
+                        "gauge_id" => "01013500",
+                    ),
+                ),
+                "output" => Dict("output_dir" => result_dir),
+            )))
+
+            @test simulation_payload["status"] == "success"
+            @test haskey(simulation_payload, "forcing_source")
+            @test simulation_payload["forcing_source"]["source_type"] == "caravan"
+
+            payload = _parse_tool_json(HydroModelMCP.compute_metrics_tool.handler(Dict(
+                "observed" => Dict(
+                    "source_type" => "caravan",
+                    "dataset_root" => caravan_root,
+                    "dataset_name" => "camels",
+                    "gauge_id" => "01013500",
+                ),
+                "output_dir" => result_dir,
+                "metrics" => ["NSE", "KGE", "RMSE"],
+            )))
+
+            @test payload["status"] == "success"
+            @test haskey(payload["metrics"], "NSE")
+            @test haskey(payload["metrics"], "KGE")
+            @test any(occursin("Inferred simulated source", warning) for warning in payload["warnings"])
+            @test isfile(payload["output_path"])
+        end
+    end
+
+    @testset "compute_metrics infers Caravan observed source from last simulation context" begin
+        base = joinpath(dirname(@__DIR__), ".tmp_tests")
+        mkpath(base)
+        mktempdir(base; prefix = "caravan-metrics-infer-") do tmpdir
+            caravan_root, _, _ = _write_mock_caravan_dataset_root(tmpdir; n_steps = 48)
+
+            simulation_payload = _parse_tool_json(HydroModelMCP.simulation_tool.handler(Dict(
+                "model" => "exphydro",
+                "inputs" => Dict(
+                    "forcing" => Dict(
+                        "source_type" => "caravan",
+                        "dataset_root" => caravan_root,
+                        "dataset_name" => "camels",
+                        "gauge_id" => "01013500",
+                    ),
+                ),
+                "output" => Dict("output_dir" => result_dir),
+            )))
+
+            payload = _parse_tool_json(HydroModelMCP.compute_metrics_tool.handler(Dict(
+                "simulated" => Dict(
+                    "source_type" => "csv",
+                    "path" => simulation_payload["output_path"],
+                ),
+                "output_dir" => result_dir,
+                "metrics" => ["NSE", "RMSE"],
+            )))
+
+            @test payload["status"] == "success"
+            @test any(occursin("Caravan forcing context", warning) for warning in payload["warnings"])
+            @test haskey(payload["metrics"], "NSE")
+        end
     end
 
     @testset "compute_metrics infers sources from session context" begin
@@ -395,6 +469,41 @@ end
         @test haskey(payload, "parameters")
         @test payload["parameter_source"]["source"] == "json"
         @test payload["parameters"] isa Dict
+    end
+
+    @testset "run_validation accepts stored calibration result_id and split fallback" begin
+        calibration_payload = _parse_tool_json(HydroModelMCP.calibrate_tool.handler(Dict(
+            "model" => "exphydro",
+            "inputs" => Dict(
+                "forcing" => Dict("source_type" => "csv", "path" => source_file),
+                "observation" => Dict("source_type" => "csv", "path" => source_file, "column" => "flow(mm)"),
+            ),
+            "objective" => "KGE",
+            "algorithm" => "BBO",
+            "maxiters" => 10,
+            "n_trials" => 1,
+        )))
+        @test calibration_payload["status"] == "success"
+        @test haskey(calibration_payload, "result_id")
+
+        payload = _parse_tool_json(HydroModelMCP.validation_tool.handler(Dict(
+            "model" => "exphydro",
+            "inputs" => Dict(
+                "forcing" => Dict("source_type" => "csv", "path" => source_file),
+                "observation" => Dict("source_type" => "csv", "path" => source_file, "column" => "flow(mm)"),
+                "parameters" => Dict(
+                    "source_type" => "calibration_result",
+                    "result_id" => calibration_payload["result_id"],
+                    "storage_category" => calibration_payload["storage_category"],
+                ),
+            ),
+            "metrics" => ["NSE", "KGE"],
+        )))
+
+        @test payload["status"] == "success"
+        @test payload["parameter_source"]["source"] == "calibration_result"
+        @test any(occursin("result_id resolved", warning) for warning in payload["warnings"])
+        @test any(occursin("reused split embedded", warning) for warning in payload["warnings"])
     end
 
     @testset "run_validation supports unified protocol" begin

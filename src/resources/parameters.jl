@@ -14,6 +14,11 @@ const objective_guide_resource = MCPResource(
             Dict("goal" => "water_balance", "primary" => "PBIAS", "secondary" => ["KGE", "R2"], "log_transform" => false),
             Dict("goal" => "dynamics", "primary" => "R2", "secondary" => ["KGE"], "log_transform" => false),
         ],
+        "strategy8_algorithm_mapping" => [
+            Dict("condition" => "low budget or high parameter dimension", "recommended" => "DDS", "backend" => "DE"),
+            Dict("condition" => "high budget", "recommended" => "SCE", "backend" => "PSO"),
+            Dict("condition" => "medium budget default", "recommended" => "BBO"),
+        ],
         "metrics" => Dict(
             "KGE" => "Kling-Gupta Efficiency balances correlation, variability, and bias.",
             "NSE" => "Nash-Sutcliffe Efficiency emphasizes peak-flow fit.",

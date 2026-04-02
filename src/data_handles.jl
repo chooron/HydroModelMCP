@@ -10,20 +10,19 @@ using Base64
 using Serialization
 
 const DATA_STORE = Dict{String,Any}()
-const SESSION_CACHE_MODE = lowercase(get(ENV, "HYDRO_SESSION_CACHE_BACKEND", "auto"))
-const SESSION_CACHE_HOST = get(ENV, "REDIS_HOST", "127.0.0.1")
+const SESSION_CACHE_MODE = lowercase(get_config_env("HYDRO_SESSION_CACHE_BACKEND", "auto"))
+const SESSION_CACHE_HOST = get_config_env("REDIS_HOST", "127.0.0.1")
 const SESSION_CACHE_PORT = try
-    parse(Int, get(ENV, "REDIS_PORT", "6379"))
+    parse(Int, get_config_env("REDIS_PORT", "6379"))
 catch
     6379
 end
 const SESSION_CACHE_TTL = try
-    parse(Int, get(ENV, "HYDRO_SESSION_CACHE_TTL", "86400"))
+    parse(Int, get_config_env("HYDRO_SESSION_CACHE_TTL", "86400"))
 catch
     86400
 end
-const SESSION_CACHE_PREFIX = get(
-    ENV,
+const SESSION_CACHE_PREFIX = get_config_env(
     "HYDRO_SESSION_CACHE_PREFIX",
     "hydro:session:" * string(UUIDs.uuid4()) * ":",
 )

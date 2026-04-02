@@ -36,6 +36,9 @@ const LLM_HINT_SPECS = [
             "Prefer canonical forcing names (P/T/Ep) or provide options.input_mapping",
             "Use explicit observation column when available to reduce inference ambiguity",
             "With options.strict_infer=true, ambiguous top candidates are rejected instead of auto-fallback",
+            "If the user mentions Caravan or a large-sample basin dataset, route with source_type=caravan and require dataset_name/source_dataset plus gauge_id/gage_id",
+            "If the requested Caravan basin is not found, return a direct not-found error instead of browsing ./data or guessing a CSV file",
+            "After same-session run_simulation, do not guess timestamped simulation CSV names for compute_metrics; omit simulated to reuse the last output_path, and use observed.source_type=caravan for Caravan observations",
         ],
     ),
     Dict{String,Any}(
@@ -79,6 +82,8 @@ const LLM_HINT_SPECS = [
         "accuracy_tips" => [
             "Provide calibration_period and validation_period together",
             "Specify metrics for stage2 evaluation to align expected output",
+            "For Caravan calibration, require source_type=caravan plus dataset_name/source_dataset and gauge_id/gage_id",
+            "If the requested Caravan basin is missing, stop with a not-found error instead of falling back to CSV inspection",
         ],
     ),
     Dict{String,Any}(
@@ -107,11 +112,14 @@ const LLM_HINT_SPECS = [
         "payload_contract" => Dict(
             "required" => ["model", "inputs.forcing", "inputs.observation"],
             "recommended" => ["inputs.parameters"],
-            "fallback_rule" => "Parameter omission is acceptable only with explicit same-session fallback diagnostics",
+            "fallback_rule" => "Parameter omission is acceptable only with explicit same-session fallback diagnostics; period omission is acceptable only when the latest same-session calibration result provides reusable split indices",
         ),
         "accuracy_tips" => [
             "Prefer explicit inputs.parameters for reproducibility",
+            "Provide calibration_period and validation_period together when reproducibility must not depend on same-session state",
             "Check warnings and inference_report before trusting metric interpretation",
+            "For Caravan validation, keep forcing and observation on the same caravan source keyed by gauge_id/dataset_name",
+            "Do not use run_validation for simulation-only metric calculation; use compute_metrics instead",
         ],
     ),
     Dict{String,Any}(
@@ -162,6 +170,56 @@ const LLM_HINT_SPECS = [
         ],
     ),
 ]
+
+const LLM_WORKFLOW_INTENT_ALIASES = Dict{String,String}(
+    "simulation" => "simulation",
+    "simulate" => "simulation",
+    "run_simulation" => "simulation",
+    "模拟" => "simulation",
+    "runoff" => "simulation",
+    "calibration" => "calibration",
+    "calibrate" => "calibration",
+    "calibrate_model" => "calibration",
+    "率定" => "calibration",
+    "validation" => "validation",
+    "validate" => "validation",
+    "run_validation" => "validation",
+    "验证" => "validation",
+    "metrics" => "metrics",
+    "compute_metrics" => "metrics",
+    "evaluation" => "metrics",
+    "discovery" => "discovery",
+    "find_model" => "discovery",
+    "model" => "discovery",
+)
+
+const LLM_WORKFLOW_PLAYBOOKS = Dict{String,Dict{String,Any}}(
+    "simulation" => Dict(
+        "next_tools" => ["find_model", "inspect_hydro_data", "run_simulation"],
+        "required_fields" => ["model", "inputs.forcing"],
+        "optional_follow_up" => ["compute_metrics", "clear_session_cache"],
+    ),
+    "calibration" => Dict(
+        "next_tools" => ["find_model", "inspect_hydro_data", "auto_calibration_workflow"],
+        "required_fields" => ["model", "inputs.forcing", "inputs.observation"],
+        "optional_follow_up" => ["diagnose_calibration", "diagnose_multiobjective", "run_validation"],
+    ),
+    "validation" => Dict(
+        "next_tools" => ["find_model", "inspect_hydro_data", "run_validation"],
+        "required_fields" => ["model", "inputs.forcing", "inputs.observation"],
+        "optional_follow_up" => ["compute_metrics"],
+    ),
+    "metrics" => Dict(
+        "next_tools" => ["compute_metrics"],
+        "required_fields" => ["simulated", "observed"],
+        "optional_follow_up" => [],
+    ),
+    "discovery" => Dict(
+        "next_tools" => ["find_model", "get_model_info", "get_model_parameters"],
+        "required_fields" => ["query"],
+        "optional_follow_up" => ["get_model_variables"],
+    ),
+)
 
 function _normalize_hint_token(value::AbstractString)
     return lowercase(replace(strip(String(value)), r"[^0-9A-Za-z一-龥]+" => ""))
@@ -259,6 +317,53 @@ function llm_hint_payload(feature_token::AbstractString)
     )
 end
 
+function _normalize_workflow_intent(intent::AbstractString)
+    token = _normalize_hint_token(intent)
+    canonical = get(LLM_WORKFLOW_INTENT_ALIASES, token, nothing)
+    isnothing(canonical) && throw(ArgumentError(
+        "Unknown workflow intent '$intent'. Available: $(join(sort!(collect(keys(LLM_WORKFLOW_PLAYBOOKS))), ", "))",
+    ))
+    return canonical
+end
+
+function workflow_playbook_payload(intent_token::AbstractString)
+    intent = _normalize_workflow_intent(intent_token)
+    return Dict(
+        "intent" => intent,
+        "requested_intent" => String(intent_token),
+        "resolved_by_alias" => _normalize_hint_token(intent_token) != _normalize_hint_token(intent),
+        "playbook" => LLM_WORKFLOW_PLAYBOOKS[intent],
+        "contract_note" => "Prefer unified v2 payload shape: model + inputs for simulation/calibration/validation.",
+    )
+end
+
+function llm_quickstart_payload()
+    return Dict(
+        "objective" => "Help lightweight LLMs call HydroModelMCP with minimal retries and minimal tokens.",
+        "default_sequence" => ["find_model", "inspect_hydro_data", "target_tool"],
+        "source_routing_rules" => [
+            "If the user explicitly says Caravan, prefer source_type=caravan and avoid local CSV guesses",
+            "For Caravan basin loading, require dataset_name/source_dataset and gauge_id/gage_id; string ids like 01013500 are valid",
+            "If the Caravan basin lookup fails, return not_found instead of scanning workspace CSV files",
+        ],
+        "target_tool_map" => Dict(
+            "simulation" => "run_simulation",
+            "calibration" => "auto_calibration_workflow",
+            "validation" => "run_validation",
+            "metrics" => "compute_metrics",
+        ),
+        "minimal_contracts" => Dict(
+            "run_simulation" => ["model", "inputs.forcing"],
+            "auto_calibration_workflow" => ["model", "inputs.forcing", "inputs.observation"],
+            "calibrate_model" => ["model", "inputs.forcing", "inputs.observation"],
+            "run_validation" => ["model", "inputs.forcing", "inputs.observation", "calibration_period", "validation_period"],
+            "compute_metrics" => ["simulated", "observed"],
+        ),
+        "when_to_load_hints" => "Read hydro://hints/{feature} only when uncertain about payload details.",
+        "where_to_expand" => "Read hydro://workflows/{intent} for a compact per-intent playbook.",
+    )
+end
+
 const llm_hints_catalog_resource = MCPResource(
     uri = "hydro://guides/llm-hints",
     name = "LLM Accuracy Hints",
@@ -268,13 +373,25 @@ const llm_hints_catalog_resource = MCPResource(
     data_provider = llm_hint_catalog_payload,
 )
 
+const llm_quickstart_resource = MCPResource(
+    uri = "hydro://guides/llm-quickstart",
+    name = "LLM Quickstart",
+    title = "HydroModelMCP LLM Quickstart",
+    description = "Token-efficient quickstart for lightweight models.",
+    mime_type = "application/json",
+    data_provider = llm_quickstart_payload,
+)
+
 function create_llm_hint_resources()
-    return MCPResource[llm_hints_catalog_resource]
+    return MCPResource[llm_hints_catalog_resource, llm_quickstart_resource]
 end
 
 export create_llm_hint_resources,
+    llm_quickstart_payload,
+    llm_quickstart_resource,
     llm_hint_catalog_payload,
     llm_hint_payload,
     llm_hint_uri,
     llm_hints_catalog_resource,
-    resolve_llm_hint_feature
+    resolve_llm_hint_feature,
+    workflow_playbook_payload

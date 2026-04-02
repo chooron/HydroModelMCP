@@ -1,7 +1,15 @@
 # ==========================================================================
 # 测试 Sampling 模块
 # ==========================================================================
+using JSON3
+using .HydroModelMCP
 using .HydroModelMCP.Sampling
+
+function _parse_sampling_tool_json(response)
+    text = response.text
+    startswith(text, "Error:") && error(text)
+    return JSON3.read(text, Dict{String,Any})
+end
 
 @testset "Sampling Module Tests" begin
 
@@ -143,6 +151,50 @@ using .HydroModelMCP.Sampling
         end
 
         println("   -> Delta method: all inequality constraints satisfied ✓")
+    end
+
+    @testset "generate_samples tool supports pie_share constraints" begin
+        payload = _parse_sampling_tool_json(HydroModelMCP.sampling_tool.handler(Dict(
+            "model_name" => "exphydro",
+            "method" => "pie_share",
+            "n_samples" => 20,
+            "constraints" => Dict(
+                "pie_share" => Dict(
+                    "parameters" => ["f", "Smax"],
+                    "total" => 500.0,
+                ),
+            ),
+        )))
+
+        @test payload["model_name"] == "exphydro"
+        @test payload["method"] == "pie_share"
+        @test payload["param_names"] == ["f", "Smax"]
+        @test length(payload["samples"]) == 20
+        for sample in payload["samples"]
+            @test haskey(sample, "f")
+            @test haskey(sample, "Smax")
+            @test Float64(sample["f"]) + Float64(sample["Smax"]) ≈ 500.0 atol=1e-8
+        end
+    end
+
+    @testset "generate_samples tool supports delta_method constraints" begin
+        payload = _parse_sampling_tool_json(HydroModelMCP.sampling_tool.handler(Dict(
+            "model_name" => "exphydro",
+            "method" => "delta_method",
+            "n_samples" => 20,
+            "constraints" => Dict(
+                "delta_method" => Dict(
+                    "inequalities" => [["Tmin", "Tmax"]],
+                ),
+            ),
+        )))
+
+        @test payload["model_name"] == "exphydro"
+        @test payload["method"] == "delta_method"
+        @test length(payload["samples"]) == 20
+        for sample in payload["samples"]
+            @test Float64(sample["Tmin"]) < Float64(sample["Tmax"])
+        end
     end
 
     @testset "错误处理：无效方法" begin

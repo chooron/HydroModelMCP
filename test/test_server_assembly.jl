@@ -13,15 +13,23 @@ using .HydroModelMCP.Discovery
     template_uris = [template.uri_template for template in server.resource_templates]
 
     @test "list_models" in tool_names
+    @test "load_caravan_data" in tool_names
+    @test !("load_camels_data" in tool_names)
     @test "inspect_hydro_data" in tool_names
     @test "list_workspace_files" in tool_names
     @test "list_mcp_surfaces" in tool_names
     @test "clear_session_cache" in tool_names
+    @test "list_stored_results" in tool_names
+    @test "get_stored_result" in tool_names
+    @test "diagnose_multiobjective" in tool_names
+    @test "auto_calibration_workflow" in tool_names
 
     @test "hydrology_expert_review" in prompt_names
+    @test "hydro_minimal_tool_router" in prompt_names
     @test "runoff_workspace_workflow" in prompt_names
     @test "calibration_workflow_plan" in prompt_names
     @test "hydrology_result_review" in prompt_names
+    @test "hydro_minimal_workflow_router" in prompt_names
 
     @test "hydro://models/catalog" in resource_uris
     @test "hydro://models/knowledge-index" in resource_uris
@@ -34,6 +42,7 @@ using .HydroModelMCP.Discovery
     @test "hydro://guides/runoff-workspace" in resource_uris
     @test "hydro://guides/result-artifacts" in resource_uris
     @test "hydro://guides/llm-hints" in resource_uris
+    @test "hydro://guides/llm-quickstart" in resource_uris
     @test "hydro://meta/resource-templates" in resource_uris
     @test "hydro://calibration/results" in resource_uris
     @test "hydro://sensitivity/results" in resource_uris
@@ -50,7 +59,34 @@ using .HydroModelMCP.Discovery
     @test "hydro://models/{model_name}/variables" in template_uris
     @test "hydro://models/{model_name}/knowledge" in template_uris
     @test "hydro://hints/{feature}" in template_uris
+    @test "hydro://workflows/{intent}" in template_uris
     @test "hydro://ensemble/results/{result_id}" in template_uris
+
+    @testset "config env prefers ENV over dotenv fallback" begin
+        base = joinpath(dirname(@__DIR__), ".tmp_tests")
+        mkpath(base)
+        mktempdir(base; prefix = "dotenv-config-") do tmpdir
+            dotenv_path = joinpath(tmpdir, ".env")
+            open(dotenv_path, "w") do io
+                write(io, "CARAVAN_DATASET_ROOT=G:/Dataset/FromDotEnv\n")
+            end
+
+            old_value = get(ENV, "CARAVAN_DATASET_ROOT", nothing)
+            try
+                haskey(ENV, "CARAVAN_DATASET_ROOT") && delete!(ENV, "CARAVAN_DATASET_ROOT")
+                @test HydroModelMCP.get_config_env("CARAVAN_DATASET_ROOT", nothing; dotenv_path = dotenv_path) == "G:/Dataset/FromDotEnv"
+
+                ENV["CARAVAN_DATASET_ROOT"] = "G:/Dataset/FromEnv"
+                @test HydroModelMCP.get_config_env("CARAVAN_DATASET_ROOT", nothing; dotenv_path = dotenv_path) == "G:/Dataset/FromEnv"
+            finally
+                if old_value === nothing
+                    haskey(ENV, "CARAVAN_DATASET_ROOT") && delete!(ENV, "CARAVAN_DATASET_ROOT")
+                else
+                    ENV["CARAVAN_DATASET_ROOT"] = old_value
+                end
+            end
+        end
+    end
 
     catalog_payload = HydroModelMCP.model_catalog_resource.data_provider()
     @test catalog_payload isa Dict
@@ -88,6 +124,7 @@ using .HydroModelMCP.Discovery
     listed_templates = template_list_response.result["resourceTemplates"]
     @test any(t -> t["uriTemplate"] == "hydro://models/{model_name}/knowledge", listed_templates)
     @test any(t -> t["uriTemplate"] == "hydro://hints/{feature}", listed_templates)
+    @test any(t -> t["uriTemplate"] == "hydro://workflows/{intent}", listed_templates)
 
     parsed_template_request = ModelContextProtocol.parse_message(
         "{\"jsonrpc\":\"2.0\",\"id\":104,\"method\":\"resources/templates/list\",\"params\":{}}",
@@ -142,17 +179,33 @@ using .HydroModelMCP.Discovery
     @test hint_direct_response isa ModelContextProtocol.JSONRPCResponse
     @test occursin("simulation_v2", hint_direct_response.result.contents[1]["text"])
 
+    workflow_template_response = ModelContextProtocol.handle_request(
+        server,
+        ModelContextProtocol.JSONRPCRequest(
+            id = 107,
+            method = "resources/read",
+            params = ModelContextProtocol.ReadResourceParams(uri = "hydro://workflows/calibrate"),
+        ),
+    )
+    @test workflow_template_response isa ModelContextProtocol.JSONRPCResponse
+    @test occursin("auto_calibration_workflow", workflow_template_response.result.contents[1]["text"])
+
     template_payload = HydroModelMCP.resource_templates_resource.data_provider()
     @test template_payload isa Dict
     @test !isempty(template_payload["templates"])
     @test any(t -> t["name"] == "model_info", template_payload["templates"])
     @test any(t -> t["name"] == "model_knowledge", template_payload["templates"])
     @test any(t -> t["name"] == "llm_hint", template_payload["templates"])
+    @test any(t -> t["name"] == "workflow_playbook", template_payload["templates"])
     @test any(t -> t["name"] == "ensemble_result", template_payload["templates"])
 
     hint_catalog_payload = HydroModelMCP.llm_hint_catalog_payload()
     @test hint_catalog_payload["count"] >= 1
     @test any(s -> s["feature"] == "calibration_stage2", hint_catalog_payload["features"])
+
+    quickstart_payload = HydroModelMCP.llm_quickstart_payload()
+    @test quickstart_payload["target_tool_map"]["simulation"] == "run_simulation"
+    @test quickstart_payload["target_tool_map"]["calibration"] == "auto_calibration_workflow"
 
     mcp_surface_payload = JSON3.read(HydroModelMCP.list_mcp_surfaces_tool.handler(Dict()).text, Dict{String,Any})
     @test mcp_surface_payload["status"] == "success"
@@ -160,6 +213,12 @@ using .HydroModelMCP.Discovery
     @test any(==("hydro://hints/{feature}"), mcp_surface_payload["resource_templates"])
     @test haskey(mcp_surface_payload, "prompts")
     @test any(==("runoff_workspace_workflow"), mcp_surface_payload["prompts"])
+    @test haskey(mcp_surface_payload, "storage_result_tools")
+    @test any(==("list_stored_results"), mcp_surface_payload["storage_result_tools"])
+    @test any(==("get_stored_result"), mcp_surface_payload["storage_result_tools"])
+    @test haskey(mcp_surface_payload, "llm_quickstart")
+    @test mcp_surface_payload["llm_quickstart"]["resource"] == "hydro://guides/llm-quickstart"
+    @test any(==("auto_calibration_workflow"), mcp_surface_payload["llm_quickstart"]["auto_workflow_tools"])
 
     expert_text = first(HydroModelMCP.Experts.hydro_expert_prompt.messages).content.text
     processed = ModelContextProtocol.process_template(expert_text, Dict("task" => "Assess runoff simulation", "context" => "Short record"))

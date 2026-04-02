@@ -74,6 +74,22 @@ list_mcp_surfaces_tool = MCPTool(
                 "resources" => resources_payload,
                 "resource_templates" => templates_payload,
                 "prompts" => prompts_payload,
+                "llm_quickstart" => Dict(
+                    "resource" => "hydro://guides/llm-quickstart",
+                    "workflow_template" => "hydro://workflows/{intent}",
+                    "router_prompts" => [
+                        "hydro_minimal_tool_router",
+                        "hydro_minimal_workflow_router",
+                    ],
+                    "minimal_first_tools" => [
+                        "find_model",
+                        "inspect_hydro_data",
+                    ],
+                    "auto_workflow_tools" => [
+                        "auto_calibration_workflow",
+                        "diagnose_multiobjective",
+                    ],
+                ),
                 "protocol_method_fallback" => Dict(
                     "preferred_protocol_methods" => [
                         "resources/templates/list",
@@ -82,6 +98,7 @@ list_mcp_surfaces_tool = MCPTool(
                     ],
                     "fallback_note" => "Use this tool when the client SDK cannot call protocol-level methods directly.",
                 ),
+                "storage_result_tools" => ["list_stored_results", "get_stored_result"],
             )
 
             return create_json_response(payload)

@@ -18,7 +18,7 @@ function create_json_response(payload)
     return TextContent(text = JSON3.write(payload))
 end
 
-function validate_required_params(params::Dict, required_keys::Vector{String})
+function validate_required_params(params::AbstractDict, required_keys::Vector{String})
     for key in required_keys
         if !haskey(params, key)
             return "Missing required parameter: $key"
@@ -32,7 +32,7 @@ function validate_required_params(params::Dict, required_keys::Vector{String})
 end
 
 function validate_enum_param(
-    params::Dict,
+    params::AbstractDict,
     param_name::String,
     valid_values::Vector{String},
     default::Union{String,Nothing} = nothing,

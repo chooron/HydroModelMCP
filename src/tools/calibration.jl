@@ -39,6 +39,16 @@ const OBJECTIVE_NAME_ALIASES = Dict{String,String}(
 )
 
 const SINGLE_ALGORITHM_ALIASES = Dict{String,String}(
+    "auto" => "AUTO",
+    "automatic" => "AUTO",
+    "自动" => "AUTO",
+    "auto_select" => "AUTO",
+    "dds" => "DDS",
+    "dynamicallydimensionedsearch" => "DDS",
+    "动态维度搜索" => "DDS",
+    "sce" => "SCE",
+    "shuffledcomplexevolution" => "SCE",
+    "复合体进化" => "SCE",
     "bbo" => "BBO",
     "biogeographybasedoptimization" => "BBO",
     "biogeography" => "BBO",
@@ -101,6 +111,82 @@ function _normalize_metric_names(metric_names_input)
     end
 
     return normalized
+end
+
+function _normalize_nested_string_dict(value, field_name::String)
+    if value isa AbstractString
+        parsed = JSON3.read(String(value))
+        return _normalize_nested_string_dict(parsed, field_name)
+    elseif value isa AbstractDict
+        normalized = Dict{String,Any}()
+        for (k, v) in pairs(value)
+            normalized[string(k)] = if v isa AbstractDict
+                _normalize_nested_string_dict(v, field_name)
+            elseif v isa AbstractVector
+                Any[item isa AbstractDict ? _normalize_nested_string_dict(item, field_name) : item for item in v]
+            else
+                v
+            end
+        end
+        return normalized
+    elseif value isa NamedTuple
+        return _normalize_nested_string_dict(Dict(pairs(value)), field_name)
+    end
+
+    throw(ArgumentError("$field_name must be an object-like value or JSON string"))
+end
+
+function _normalize_calibration_result_payload(raw)
+    payload = _normalize_nested_string_dict(raw, "calibration_result")
+
+    for alias_key in ("calibration_result", "result", "payload", "data")
+        haskey(payload, alias_key) || continue
+        nested = payload[alias_key]
+        nested isa AbstractDict || continue
+        candidate = _normalize_nested_string_dict(nested, alias_key)
+        if haskey(candidate, "best_params") || haskey(candidate, "all_trials") || haskey(candidate, "trial_results")
+            payload = candidate
+            break
+        end
+    end
+
+    if haskey(payload, "best_parameters") && !haskey(payload, "best_params")
+        payload["best_params"] = payload["best_parameters"]
+    end
+    if haskey(payload, "final_parameters") && !haskey(payload, "best_params")
+        payload["best_params"] = payload["final_parameters"]
+    end
+    if haskey(payload, "best_params") && !haskey(payload, "calibrated_params")
+        payload["calibrated_params"] = payload["best_params"]
+    end
+
+    if haskey(payload, "trial_results") && !haskey(payload, "all_trials")
+        payload["all_trials"] = payload["trial_results"]
+    end
+
+    if haskey(payload, "all_trials") && payload["all_trials"] isa AbstractVector
+        normalized_trials = Dict{String,Any}[]
+        for trial in payload["all_trials"]
+            trial isa AbstractDict || continue
+            normalized_trial = _normalize_nested_string_dict(trial, "calibration_result.all_trials")
+            if haskey(normalized_trial, "best_objective") && !haskey(normalized_trial, "objective_value")
+                normalized_trial["objective_value"] = normalized_trial["best_objective"]
+            end
+            if haskey(normalized_trial, "best_parameters") && !haskey(normalized_trial, "params")
+                normalized_trial["params"] = normalized_trial["best_parameters"]
+            end
+            if haskey(normalized_trial, "final_parameters") && !haskey(normalized_trial, "params")
+                normalized_trial["params"] = normalized_trial["final_parameters"]
+            end
+            if haskey(normalized_trial, "best_params") && !haskey(normalized_trial, "params")
+                normalized_trial["params"] = normalized_trial["best_params"]
+            end
+            push!(normalized_trials, normalized_trial)
+        end
+        payload["all_trials"] = normalized_trials
+    end
+
+    return payload
 end
 
 function _metric_candidates(role::String)
@@ -217,13 +303,13 @@ function _load_metric_series(source_like, role::String)
         column_name, infer_warnings = _infer_metric_column(df, role, get(source, "column", nothing))
         append!(warnings, infer_warnings)
         return Float64.(df[!, Symbol(column_name)]), path, column_name, warnings
-    elseif source_type in ("json", "redis")
+    elseif source_type in ("json", "redis", "caravan")
         values, path, column_name, infer_warnings = _load_metric_series_from_loader(source, role)
         append!(warnings, infer_warnings)
         return values, path, column_name, warnings
     end
 
-    throw(ArgumentError("Unsupported source_type for $(role): $source_type. Use csv, json, redis, or data_handle."))
+    throw(ArgumentError("Unsupported source_type for $(role): $source_type. Use csv, json, redis, caravan, or data_handle."))
 end
 
 function _write_metrics_artifact(output_dir::String, base_name::String, payload::Dict{String,Any})
@@ -270,6 +356,8 @@ function _resolve_metrics_sources(params)
 
     simulated = get(normalized, "simulated", nothing)
     observed = get(normalized, "observed", nothing)
+    last_simulation = nothing
+    simulated_from_last_run = false
 
     if simulated === nothing
         last_simulation = load_last_result(LAST_SIMULATION_RESULT_HANDLE)
@@ -278,6 +366,7 @@ function _resolve_metrics_sources(params)
                 "source_type" => "csv",
                 "path" => string(last_simulation["output_path"]),
             )
+            simulated_from_last_run = true
             push!(warnings, "Inferred simulated source from last run_simulation output")
         end
     end
@@ -290,6 +379,28 @@ function _resolve_metrics_sources(params)
                 "path" => inferred_observed_path,
             )
             push!(warnings, "Inferred observed source from ./data using simulation file stem")
+        end
+    end
+
+    if observed === nothing
+        last_simulation isa AbstractDict || (last_simulation = load_last_result(LAST_SIMULATION_RESULT_HANDLE))
+        if last_simulation isa AbstractDict && haskey(last_simulation, "forcing_source")
+            forcing_source = normalize_string_dict(last_simulation["forcing_source"])
+            source_type = lowercase(string(get(forcing_source, "source_type", "")))
+            same_run_context = simulated_from_last_run || (
+                simulated isa AbstractDict &&
+                haskey(simulated, "path") &&
+                haskey(last_simulation, "output_path") &&
+                normpath(string(simulated["path"])) == normpath(string(last_simulation["output_path"]))
+            )
+            if same_run_context && source_type == "caravan"
+                observed = Dict{String,Any}(
+                    "source_type" => "caravan",
+                    "dataset_name" => get(forcing_source, "dataset_name", get(forcing_source, "source_dataset", nothing)),
+                    "gauge_id" => get(forcing_source, "gauge_id", get(forcing_source, "gage_id", get(forcing_source, "basin_id", nothing))),
+                )
+                push!(warnings, "Inferred observed source from last run_simulation Caravan forcing context")
+            end
         end
     end
 
@@ -404,9 +515,287 @@ function _build_stage2_evaluation(
     )
 end
 
+function _parse_pie_share_constraints(raw)
+    raw isa AbstractDict || throw(ArgumentError("constraints.pie_share must be an object"))
+    data = normalize_string_dict(raw)
+    haskey(data, "parameters") || throw(ArgumentError("constraints.pie_share.parameters is required"))
+    params_raw = data["parameters"]
+    params_raw isa AbstractVector || throw(ArgumentError("constraints.pie_share.parameters must be an array"))
+    parameter_names = String[strip(string(v)) for v in params_raw]
+    any(isempty, parameter_names) && throw(ArgumentError("constraints.pie_share.parameters cannot contain empty names"))
+    length(unique(parameter_names)) == length(parameter_names) ||
+        throw(ArgumentError("constraints.pie_share.parameters cannot contain duplicates"))
+    return Dict{String,Any}(
+        "parameters" => parameter_names,
+        "total" => Float64(get(data, "total", 1.0)),
+    )
+end
+
+function _parse_delta_constraints(raw)
+    raw isa AbstractDict || throw(ArgumentError("constraints.delta_method must be an object"))
+    data = normalize_string_dict(raw)
+    haskey(data, "inequalities") || throw(ArgumentError("constraints.delta_method.inequalities is required"))
+    inequalities_raw = data["inequalities"]
+    inequalities_raw isa AbstractVector || throw(ArgumentError("constraints.delta_method.inequalities must be an array"))
+
+    inequalities = Vector{Tuple{String,String}}()
+    for item in inequalities_raw
+        item isa AbstractVector || throw(ArgumentError("Each inequality must be a two-element array [lower_param, upper_param]"))
+        length(item) == 2 || throw(ArgumentError("Each inequality must contain exactly two parameter names"))
+        lower_name = strip(string(item[1]))
+        upper_name = strip(string(item[2]))
+        isempty(lower_name) && throw(ArgumentError("delta_method inequality lower parameter cannot be empty"))
+        isempty(upper_name) && throw(ArgumentError("delta_method inequality upper parameter cannot be empty"))
+        lower_name == upper_name && throw(ArgumentError("delta_method inequality cannot use the same parameter on both sides"))
+        push!(inequalities, (lower_name, upper_name))
+    end
+
+    return Dict{String,Any}("inequalities" => inequalities)
+end
+
+function _normalize_constraints(raw_constraints)
+    raw_constraints === nothing && return nothing
+    raw_constraints isa AbstractDict || throw(ArgumentError("constraints must be an object"))
+    constraints = normalize_string_dict(raw_constraints)
+    normalized = Dict{String,Any}()
+
+    if haskey(constraints, "pie_share")
+        normalized["pie_share"] = _parse_pie_share_constraints(constraints["pie_share"])
+    end
+    if haskey(constraints, "delta_method")
+        normalized["delta_method"] = _parse_delta_constraints(constraints["delta_method"])
+    end
+
+    isempty(normalized) && throw(ArgumentError("constraints must contain at least one of: pie_share, delta_method"))
+    return normalized
+end
+
+function _build_param_bounds_lookup(param_names::Vector{String}, default_bounds::Vector{Tuple{Float64,Float64}}, custom_bounds)
+    lookup = Dict{String,Tuple{Float64,Float64}}()
+    for (idx, pname) in enumerate(param_names)
+        if !(custom_bounds === nothing) && haskey(custom_bounds, pname)
+            bound_val = custom_bounds[pname]
+            if bound_val isa AbstractVector
+                lookup[pname] = (Float64(bound_val[1]), Float64(bound_val[2]))
+            elseif bound_val isa AbstractDict
+                bdict = normalize_string_dict(bound_val)
+                lookup[pname] = (Float64(bdict["lower"]), Float64(bdict["upper"]))
+            else
+                throw(ArgumentError("param_bounds.$pname must be [lower, upper] or object{lower,upper}"))
+            end
+        else
+            lookup[pname] = default_bounds[idx]
+        end
+    end
+    return lookup
+end
+
+function _evaluate_constraint_plan(model_name::String, param_bounds, constraints)
+    constraints === nothing && return nothing, String[]
+
+    _, _, param_names_syms, default_bounds = Calibration._load_model_and_bounds(model_name)
+    param_names = string.(param_names_syms)
+    bounds_lookup = _build_param_bounds_lookup(param_names, default_bounds, param_bounds)
+
+    warnings = String[]
+    summary = Dict{String,Any}(
+        "enabled" => true,
+        "status" => "ok",
+        "checks" => Dict{String,Any}(),
+    )
+
+    if haskey(constraints, "pie_share")
+        pie = constraints["pie_share"]
+        pie_params = String.(pie["parameters"])
+        total = Float64(pie["total"])
+        unknown = [p for p in pie_params if !haskey(bounds_lookup, p)]
+        isempty(unknown) || throw(ArgumentError("constraints.pie_share includes unknown parameters: $(join(unknown, ", "))"))
+
+        lower_sum = sum(bounds_lookup[p][1] for p in pie_params)
+        upper_sum = sum(bounds_lookup[p][2] for p in pie_params)
+        feasible = lower_sum - 1e-10 <= total <= upper_sum + 1e-10
+        feasible || throw(ArgumentError(
+            "Pie-share infeasible: total=$total is outside [sum(lower)=$(round(lower_sum, digits=6)), sum(upper)=$(round(upper_sum, digits=6))]",
+        ))
+
+        summary["checks"]["pie_share"] = Dict{String,Any}(
+            "status" => "ok",
+            "parameters" => pie_params,
+            "total" => total,
+            "feasible_interval" => [lower_sum, upper_sum],
+        )
+    end
+
+    if haskey(constraints, "delta_method")
+        delta = constraints["delta_method"]
+        inequalities = delta["inequalities"]
+        invalid = Tuple{String,String}[]
+        valid = Tuple{String,String}[]
+
+        for (lower_name, upper_name) in inequalities
+            haskey(bounds_lookup, lower_name) || throw(ArgumentError("delta_method parameter '$lower_name' not found in model bounds"))
+            haskey(bounds_lookup, upper_name) || throw(ArgumentError("delta_method parameter '$upper_name' not found in model bounds"))
+
+            lower_bound = bounds_lookup[lower_name]
+            upper_bound = bounds_lookup[upper_name]
+            if lower_bound[1] >= upper_bound[2]
+                push!(invalid, (lower_name, upper_name))
+            else
+                push!(valid, (lower_name, upper_name))
+            end
+        end
+
+        isempty(invalid) || throw(ArgumentError(
+            "Delta-method infeasible inequalities due to non-overlapping bounds: $(join(["$(p[1])<$(p[2])" for p in invalid], ", "))",
+        ))
+
+        summary["checks"]["delta_method"] = Dict{String,Any}(
+            "status" => "ok",
+            "inequalities" => [[p[1], p[2]] for p in valid],
+            "count" => length(valid),
+        )
+    end
+
+    push!(warnings, "Constraints were pre-validated and are enforced during optimization through a penalty term.")
+    return summary, warnings
+end
+
+function _infer_convergence_assessment(objective_name::String, best_objective::Float64)
+    metric_upper = Dict(
+        "NSE" => 1.0,
+        "KGE" => 1.0,
+        "LogNSE" => 1.0,
+        "LogKGE" => 1.0,
+        "R2" => 1.0,
+    )
+
+    if haskey(metric_upper, objective_name)
+        score = clamp(best_objective / metric_upper[objective_name], 0.0, 1.0)
+        status = score >= 0.8 ? "converged" : (score >= 0.6 ? "uncertain" : "not_converged")
+        return Dict{String,Any}(
+            "status" => status,
+            "score" => score,
+            "reason" => "higher-is-better objective compared against practical target ratio",
+            "objective_name" => objective_name,
+            "best_objective" => best_objective,
+        )
+    elseif objective_name == "PBIAS"
+        abs_bias = abs(best_objective)
+        score = if abs_bias <= 10.0
+            1.0
+        elseif abs_bias <= 20.0
+            0.7
+        elseif abs_bias <= 40.0
+            0.4
+        else
+            0.1
+        end
+        status = score >= 0.8 ? "converged" : (score >= 0.6 ? "uncertain" : "not_converged")
+        return Dict{String,Any}(
+            "status" => status,
+            "score" => score,
+            "reason" => "lower absolute PBIAS indicates better convergence",
+            "objective_name" => objective_name,
+            "best_objective" => best_objective,
+        )
+    elseif objective_name == "RMSE"
+        score = best_objective <= 0 ? 1.0 : clamp(1.0 / (1.0 + best_objective), 0.0, 1.0)
+        status = score >= 0.8 ? "converged" : (score >= 0.6 ? "uncertain" : "not_converged")
+        return Dict{String,Any}(
+            "status" => status,
+            "score" => score,
+            "reason" => "lower RMSE indicates better convergence",
+            "objective_name" => objective_name,
+            "best_objective" => best_objective,
+        )
+    end
+
+    return Dict{String,Any}(
+        "status" => "uncertain",
+        "score" => 0.5,
+        "reason" => "objective type not calibrated in heuristic convergence assessment",
+        "objective_name" => objective_name,
+        "best_objective" => best_objective,
+    )
+end
+
+function _canonical_param_bounds(raw_bounds)
+    raw_bounds isa AbstractDict || throw(ArgumentError("param_bounds must be an object"))
+    canonical = Dict{String,Vector{Float64}}()
+    for (k, v) in pairs(raw_bounds)
+        key = string(k)
+        if v isa AbstractVector
+            length(v) == 2 || throw(ArgumentError("param_bounds.$key must contain [lower, upper]"))
+            canonical[key] = [Float64(v[1]), Float64(v[2])]
+        elseif v isa AbstractDict
+            bdict = normalize_string_dict(v)
+            haskey(bdict, "lower") && haskey(bdict, "upper") ||
+                throw(ArgumentError("param_bounds.$key must include lower and upper fields"))
+            canonical[key] = [Float64(bdict["lower"]), Float64(bdict["upper"])]
+        else
+            throw(ArgumentError("param_bounds.$key must be [lower, upper] or object{lower,upper}"))
+        end
+    end
+    return canonical
+end
+
+function _quality_score_from_metrics(metrics::AbstractDict)
+    kge = haskey(metrics, "KGE") ? Float64(metrics["KGE"]) : 0.0
+    nse = haskey(metrics, "NSE") ? Float64(metrics["NSE"]) : 0.0
+    rmse = haskey(metrics, "RMSE") ? Float64(metrics["RMSE"]) : 1.0
+    pbias = haskey(metrics, "PBIAS") ? abs(Float64(metrics["PBIAS"])) : 100.0
+
+    rmse_score = clamp(1.0 / (1.0 + rmse), 0.0, 1.0)
+    pbias_score = clamp(1.0 - pbias / 100.0, 0.0, 1.0)
+    return 0.35 * kge + 0.30 * nse + 0.20 * rmse_score + 0.15 * pbias_score
+end
+
+function _apply_boundary_expansion(bounds::Dict{String,Vector{Float64}}, boundary_adjustments)
+    expanded = Dict{String,Vector{Float64}}(k => copy(v) for (k, v) in pairs(bounds))
+    if boundary_adjustments isa AbstractDict
+        for (pname_raw, adj_raw) in pairs(boundary_adjustments)
+            pname = string(pname_raw)
+            haskey(expanded, pname) || continue
+            if adj_raw isa AbstractDict
+                adj = normalize_string_dict(adj_raw)
+                if haskey(adj, "suggested_bounds")
+                    sb = adj["suggested_bounds"]
+                    sb isa AbstractVector || continue
+                    length(sb) == 2 || continue
+                    expanded[pname] = [Float64(sb[1]), Float64(sb[2])]
+                    continue
+                end
+            end
+
+            lo, hi = expanded[pname]
+            width = max(hi - lo, 1e-6)
+            margin = 0.2 * width
+            expanded[pname] = [lo - margin, hi + margin]
+        end
+    end
+    return expanded
+end
+
+function _auto_calibration_iteration_summary(run_payload::Dict{String,Any}, diagnostics::Dict{String,Any}, validation_payload)
+    stage2 = get(run_payload, "stage2_evaluation", Dict{String,Any}())
+    metrics = get(stage2, "test_available", false) ? get(stage2, "test_metrics", Dict{String,Any}()) : get(stage2, "train_metrics", Dict{String,Any}())
+    qscore = metrics isa AbstractDict ? _quality_score_from_metrics(metrics) : 0.0
+
+    return Dict{String,Any}(
+        "result_id" => get(run_payload, "result_id", nothing),
+        "algorithm" => get(run_payload, "algorithm", nothing),
+        "objective" => get(run_payload, "objective_name", nothing),
+        "best_objective" => get(run_payload, "best_objective", nothing),
+        "converged" => get(run_payload, "converged", false),
+        "quality_score" => qscore,
+        "diagnostics" => diagnostics,
+        "validation" => validation_payload,
+    )
+end
+
 compute_metrics_tool = MCPTool(
     name = "compute_metrics",
-    description = "Compute evaluation metrics from simulated and observed sources, using file paths or in-memory data handles.",
+    description = "Compute evaluation metrics from simulated and observed sources, including csv/json/redis/caravan descriptors and in-memory data handles.",
     input_schema = Dict{String,Any}(
         "type" => "object",
         "properties" => Dict{String,Any}(
@@ -570,7 +959,8 @@ sensitivity_tool = MCPTool(
             "objective" => OBJECTIVE_SCHEMA,
             "threshold" => THRESHOLD_SCHEMA,
             "solver" => SOLVER_SIMPLE_SCHEMA,
-            "interpolator" => INTERPOLATOR_SIMPLE_SCHEMA
+            "interpolator" => INTERPOLATOR_SIMPLE_SCHEMA,
+            "save_to_storage" => SAVE_TO_STORAGE_SCHEMA,
         ),
         "required" => ["model", "inputs"]
     ),
@@ -614,8 +1004,22 @@ sensitivity_tool = MCPTool(
                 solver_type = get(runtime_cfg, "solver", get(params, "solver", "DISCRETE")),
                 interp_type = get(runtime_cfg, "interpolation", get(params, "interpolator", "LINEAR"))
             )
+
+            result_id = string(UUIDs.uuid4())
+            result["result_id"] = result_id
+            result["storage_category"] = "sensitivity"
+            result["status"] = "success"
             result["inference_report"] = resolved["inference_report"]
             result["warnings"] = resolved["warnings"]
+
+            if get(params, "save_to_storage", true)
+                Storage.save_result(
+                    STORAGE_BACKEND,
+                    "sensitivity",
+                    result_id,
+                    result,
+                )
+            end
             return TextContent(text = JSON3.write(result))
         catch e
             return create_error_response(e)
@@ -667,7 +1071,8 @@ sensitivity_analysis_tool = MCPTool(
             "threshold" => Dict{String,Any}(
                 "type" => "number",
                 "description" => "敏感性阈值（归一化后，>=此值为敏感参数），默认 0.1"
-            )
+            ),
+            "save_to_storage" => SAVE_TO_STORAGE_SCHEMA,
         ),
         "required" => ["data_handle", "model_name"]
     ),
@@ -753,8 +1158,21 @@ sensitivity_analysis_tool = MCPTool(
                 "method_used"            => result["method"],
                 "threshold"              => result["threshold"],
                 "model_name"             => result["model_name"],
-                "n_samples"              => result["n_samples"]
+                "n_samples"              => result["n_samples"],
+                "status"                 => "success",
             )
+
+            result_id = string(UUIDs.uuid4())
+            output["result_id"] = result_id
+            output["storage_category"] = "sensitivity"
+            if get(params, "save_to_storage", true)
+                Storage.save_result(
+                    STORAGE_BACKEND,
+                    "sensitivity",
+                    result_id,
+                    output,
+                )
+            end
             return TextContent(text = JSON3.write(output))
         catch e
             return create_error_response(e)
@@ -763,14 +1181,15 @@ sensitivity_analysis_tool = MCPTool(
 )
 sampling_tool = MCPTool(
     name = "generate_samples",
-    description = "为水文模型生成参数样本集(Strategy 5)。支持 LHS(拉丁超立方)和 Sobol 序列，确保参数空间均匀覆盖。可用于参数探索或校准初始化。",
+    description = "为水文模型生成参数样本集(Strategy 5)。支持 LHS/Sobol/随机采样，也支持 Strategy 2 的约束采样（pie_share 与 delta_method）。",
     input_schema = Dict{String,Any}(
         "type" => "object",
         "properties" => Dict{String,Any}(
             "model_name" => MODEL_NAME_SCHEMA,
             "n_samples" => SAMPLING_N_SAMPLES_SCHEMA,
             "method" => SAMPLING_METHOD_SCHEMA,
-            "param_bounds" => PARAM_BOUNDS_SCHEMA
+            "param_bounds" => PARAM_BOUNDS_SCHEMA,
+            "constraints" => PARAMETER_CONSTRAINTS_SCHEMA,
         ),
         "required" => ["model_name"]
     ),
@@ -784,7 +1203,7 @@ sampling_tool = MCPTool(
         # 验证枚举参数
         if haskey(params, "method")
             enum_error = validate_enum_param(params, "method",
-                ["lhs", "sobol", "random"], "lhs")
+                ["lhs", "sobol", "random", "pie_share", "delta_method"], "lhs")
             if !isnothing(enum_error)
                 return create_error_response(enum_error)
             end
@@ -808,26 +1227,64 @@ sampling_tool = MCPTool(
 
             n_samples = Int(get(params, "n_samples", 100))
             method = get(params, "method", "lhs")
-            samples_matrix = Sampling.generate_samples(bounds; method=method, n_samples=n_samples)
+            constraints = _normalize_constraints(get(params, "constraints", nothing))
+            output_param_names = string.(param_names)
+            bound_lookup = Dict(string(param_names[i]) => [bounds[i][1], bounds[i][2]] for i in eachindex(param_names))
+
+            samples_matrix = if method == "pie_share"
+                isnothing(constraints) && throw(ArgumentError("method=pie_share requires constraints.pie_share"))
+                haskey(constraints, "pie_share") || throw(ArgumentError("constraints.pie_share is required when method=pie_share"))
+                pie = constraints["pie_share"]
+                constrained_param_names = String.(pie["parameters"])
+                all(constrained_param_names .∈ Ref(string.(param_names))) || throw(ArgumentError(
+                    "constraints.pie_share.parameters must be subset of model parameters",
+                ))
+                output_param_names = constrained_param_names
+                Sampling.pie_share_sampling(length(constrained_param_names), n_samples; total = Float64(pie["total"]))
+            elseif method == "delta_method"
+                isnothing(constraints) && throw(ArgumentError("method=delta_method requires constraints.delta_method"))
+                haskey(constraints, "delta_method") || throw(ArgumentError("constraints.delta_method is required when method=delta_method"))
+                delta = constraints["delta_method"]
+                name_to_index = Dict(string(param_names[i]) => i for i in eachindex(param_names))
+                inequalities_idx = Tuple{Int,Int}[]
+                for (lower_name, upper_name) in delta["inequalities"]
+                    haskey(name_to_index, lower_name) || throw(ArgumentError("Unknown parameter in delta_method constraint: $lower_name"))
+                    haskey(name_to_index, upper_name) || throw(ArgumentError("Unknown parameter in delta_method constraint: $upper_name"))
+                    push!(inequalities_idx, (name_to_index[lower_name], name_to_index[upper_name]))
+                end
+                Sampling.delta_method_sampling(bounds, inequalities_idx; n_samples = n_samples)
+            else
+                Sampling.generate_samples(bounds; method = method, n_samples = n_samples)
+            end
 
             # 转为可序列化格式: [{param1: v1, param2: v2, ...}, ...]
             samples_list = Dict{String,Float64}[]
             for j in 1:n_samples
                 d = Dict{String,Float64}()
-                for (i, pname) in enumerate(param_names)
-                    d[string(pname)] = samples_matrix[i, j]
+                if method == "pie_share"
+                    pie = constraints["pie_share"]
+                    constrained_param_names = String.(pie["parameters"])
+                    for (i, pname) in enumerate(constrained_param_names)
+                        d[pname] = samples_matrix[i, j]
+                    end
+                else
+                    for (i, pname) in enumerate(param_names)
+                        d[string(pname)] = samples_matrix[i, j]
+                    end
                 end
                 push!(samples_list, d)
             end
 
             result = Dict{String,Any}(
+                "status" => "success",
                 "model_name" => canonical,
                 "method" => method,
                 "n_samples" => n_samples,
-                "param_names" => string.(param_names),
-                "bounds" => Dict(string(param_names[i]) => [bounds[i][1], bounds[i][2]] for i in eachindex(param_names)),
-                "samples" => samples_list
+                "param_names" => output_param_names,
+                "bounds" => Dict(pname => bound_lookup[pname] for pname in output_param_names),
+                "samples" => samples_list,
             )
+            !(constraints === nothing) && (result["constraints"] = constraints)
             return TextContent(text = JSON3.write(result))
         catch e
             return create_error_response(e)
@@ -869,8 +1326,12 @@ calibrate_tool = MCPTool(
             "maxiters" => MAXITERS_SCHEMA,
             "n_trials" => N_TRIALS_SCHEMA,
             "log_transform" => LOG_TRANSFORM_SCHEMA,
+            "log_transform_mode" => LOG_TRANSFORM_MODE_SCHEMA,
+            "budget" => CALIBRATION_BUDGET_SCHEMA,
+            "seed" => SEED_SCHEMA,
             "fixed_params" => FIXED_PARAMS_SCHEMA,
             "param_bounds" => PARAM_BOUNDS_SCHEMA,
+            "constraints" => PARAMETER_CONSTRAINTS_SCHEMA,
             "solver" => SOLVER_SCHEMA,
             "interpolator" => INTERPOLATOR_SCHEMA,
             "init_states" => INIT_STATES_SCHEMA,
@@ -880,6 +1341,7 @@ calibrate_tool = MCPTool(
             "calibration_period" => CALIBRATION_PERIOD_SCHEMA,
             "validation_period" => VALIDATION_PERIOD_SCHEMA,
             "metrics" => METRICS_SCHEMA,
+            "save_to_storage" => SAVE_TO_STORAGE_SCHEMA,
         ),
         "required" => ["model", "inputs"]
     ),
@@ -907,11 +1369,20 @@ calibrate_tool = MCPTool(
                     params["algorithm"],
                     "algorithm",
                     SINGLE_ALGORITHM_ALIASES,
-                    Set(["BBO", "DE", "PSO", "CMAES", "ECA"]),
+                    Set(["AUTO", "DDS", "SCE", "BBO", "DE", "PSO", "CMAES", "ECA"]),
                 )
             catch e
                 return create_error_response(e)
             end
+        end
+
+        if haskey(params, "budget")
+            enum_error = validate_enum_param(params, "budget", ["low", "medium", "high"], "medium")
+            !isnothing(enum_error) && return create_error_response(enum_error)
+        end
+        if haskey(params, "log_transform_mode")
+            enum_error = validate_enum_param(params, "log_transform_mode", ["auto", "manual"], "auto")
+            !isnothing(enum_error) && return create_error_response(enum_error)
         end
 
         if haskey(params, "method")
@@ -961,6 +1432,13 @@ calibrate_tool = MCPTool(
                 end
             end
 
+            constraints_cfg = _normalize_constraints(get(params, "constraints", nothing))
+            constraint_diagnostics, constraint_warnings = _evaluate_constraint_plan(
+                resolved_model,
+                pb,
+                constraints_cfg,
+            )
+
             ist = nothing
             if haskey(params, "init_states")
                 ist = Dict{String,Float64}()
@@ -980,12 +1458,16 @@ calibrate_tool = MCPTool(
                 maxiters      = maxiters_val,
                 objective     = get(params, "objective", "KGE"),
                 log_transform = log_transform_val,
+                log_transform_mode = String(get(params, "log_transform_mode", "auto")),
                 fixed_params  = fixed,
                 param_bounds  = pb,
+                constraints   = constraints_cfg,
                 n_trials      = Int(get(params, "n_trials", 1)),
                 solver_type   = get(runtime_cfg, "solver", get(params, "solver", "DISCRETE")),
                 interp_type   = get(runtime_cfg, "interpolation", get(params, "interpolator", "LINEAR")),
-                init_states_dict = ist
+                init_states_dict = ist,
+                budget = String(get(params, "budget", "medium")),
+                seed = haskey(params, "seed") ? Int(params["seed"]) : nothing,
             )
             runtime_seconds = time() - t_start
 
@@ -999,9 +1481,13 @@ calibrate_tool = MCPTool(
             result["iterations_used"] = maxiters_val
             # runtime_seconds
             result["runtime_seconds"] = round(runtime_seconds; digits=2)
-            # converged：以 best_objective 是否超过阈值作简单判断
+
+            objective_name = string(get(result, "objective_name", get(params, "objective", "KGE")))
             best_obj_val = get(result, "best_objective", 0.0)
-            result["converged"] = best_obj_val >= 0.7
+            convergence_assessment = _infer_convergence_assessment(objective_name, Float64(best_obj_val))
+            result["convergence_assessment"] = convergence_assessment
+            result["converged"] = convergence_assessment["status"] == "converged"
+
             # objective_summary：从 all_trials 第一项提升到顶层
             if haskey(result, "all_trials") && !isempty(result["all_trials"])
                 first_trial = result["all_trials"][1]
@@ -1027,8 +1513,27 @@ calibrate_tool = MCPTool(
             warnings = String[]
             append!(warnings, String.(resolved["warnings"]))
             append!(warnings, split_warnings)
+            append!(warnings, constraint_warnings)
             result["warnings"] = warnings
             result["inference_report"] = resolved["inference_report"]
+
+            if !(constraints_cfg === nothing)
+                result["constraints"] = constraints_cfg
+                result["constraint_diagnostics"] = constraint_diagnostics
+            end
+
+            result_id = string(UUIDs.uuid4())
+            result["result_id"] = result_id
+            result["storage_category"] = "calibration"
+
+            if get(params, "save_to_storage", true)
+                Storage.save_result(
+                    STORAGE_BACKEND,
+                    "calibration",
+                    result_id,
+                    result,
+                )
+            end
 
             store_last_result(LAST_CALIBRATION_RESULT_HANDLE, result)
 
@@ -1044,7 +1549,7 @@ calibrate_tool = MCPTool(
 # ==============================================================================
 calibrate_multi_tool = MCPTool(
     name = "calibrate_multiobjective",
-    description = "执行多目标参数校准(Strategy 9)，生成 Pareto 前沿。适用于需要同时优化多个指标(如高流 KGE + 低流 LogKGE)的场景。",
+    description = "执行多目标参数校准(Strategy 9)，生成 Pareto 前沿。默认使用较小的探索性预算以避免长时间阻塞；需要更充分搜索时请显式提高 maxiters 和 population_size。",
     input_schema = Dict{String,Any}(
         "type" => "object",
         "properties" => Dict{String,Any}(
@@ -1094,6 +1599,8 @@ calibrate_multi_tool = MCPTool(
             forcing_nt = resolved["forcing_nt"]
             obs_vec = Float64.(resolved["observation"])
             runtime_cfg = resolved["runtime"]
+            maxiters_val = Int(get(params, "maxiters", 30))
+            population_size_val = Int(get(params, "population_size", 16))
 
             fixed = Dict{String,Float64}()
             if haskey(params, "fixed_params")
@@ -1122,15 +1629,18 @@ calibrate_multi_tool = MCPTool(
                 model_name, forcing_nt, obs_vec;
                 objectives = String.(params["objectives"]),
                 algorithm = get(params, "algorithm", "NSGA2"),
-                maxiters = Int(get(params, "maxiters", 1000)),
-                population_size = Int(get(params, "population_size", 50)),
+                maxiters = maxiters_val,
+                population_size = population_size_val,
                 fixed_params = fixed,
                 param_bounds = pb,
                 solver_type = get(runtime_cfg, "solver", get(params, "solver", "DISCRETE")),
                 interp_type = get(runtime_cfg, "interpolation", get(params, "interpolator", "LINEAR")),
                 init_states_dict = ist
             )
-            result["warnings"] = resolved["warnings"]
+            warnings = String.(resolved["warnings"])
+            !haskey(params, "maxiters") && push!(warnings, "Used exploratory default maxiters=$(maxiters_val) for calibrate_multiobjective; increase it explicitly for a denser Pareto search")
+            !haskey(params, "population_size") && push!(warnings, "Used exploratory default population_size=$(population_size_val) for calibrate_multiobjective")
+            result["warnings"] = warnings
             result["inference_report"] = resolved["inference_report"]
             return TextContent(text = JSON3.write(result))
         catch e
@@ -1164,10 +1674,7 @@ diagnose_tool = MCPTool(
                     throw(ArgumentError("Missing required parameter: calibration_result"))
             end
 
-            # 确保是 Dict{String,Any}
-            if !(cal_result isa Dict)
-                cal_result = Dict{String,Any}(string(k) => v for (k, v) in cal_result)
-            end
+            cal_result = _normalize_calibration_result_payload(cal_result)
 
             result = Calibration.diagnose_calibration(
                 cal_result;
@@ -1180,6 +1687,36 @@ diagnose_tool = MCPTool(
             return create_error_response(e)
         end
     end
+)
+
+diagnose_multi_tool = MCPTool(
+    name = "diagnose_multiobjective",
+    description = "Diagnose multi-objective calibration quality by checking Pareto-front degeneracy and objective conflict patterns.",
+    input_schema = Dict{String,Any}(
+        "type" => "object",
+        "properties" => Dict{String,Any}(
+            "multiobjective_result" => Dict{String,Any}(
+                "type" => "object",
+                "description" => "Result object returned by calibrate_multiobjective",
+            ),
+        ),
+        "required" => ["multiobjective_result"],
+    ),
+    handler = function(params)
+        validation_error = validate_required_params(params, ["multiobjective_result"])
+        !isnothing(validation_error) && return create_error_response(validation_error)
+
+        try
+            raw = params["multiobjective_result"]
+            result_obj = raw isa AbstractDict ? Dict{String,Any}(string(k) => v for (k, v) in pairs(raw)) :
+                throw(ArgumentError("multiobjective_result must be an object"))
+            diagnosis = Calibration.diagnose_multiobjective(result_obj)
+            diagnosis["status"] = "success"
+            return TextContent(text = JSON3.write(diagnosis))
+        catch e
+            return create_error_response(e)
+        end
+    end,
 )
 
 # ==============================================================================
@@ -1488,6 +2025,7 @@ compute_diagnostics_full_tool = MCPTool(
             # 将 final_parameters 统一映射到 best_parameters
             raw_trials = params["trial_results"]
             normalized_trials = Dict{String,Any}[]
+            inferred_history_count = 0
             for trial in raw_trials
                 t = Dict{String,Any}(string(k) => v for (k, v) in trial)
                 # final_parameters → best_parameters 兼容
@@ -1511,9 +2049,11 @@ compute_diagnostics_full_tool = MCPTool(
                             range(max(best_obj_v - 0.3, 0.0), best_obj_v, length=50),
                             fill(best_obj_v, 50)
                         )
+                        inferred_history_count += 1
                     elseif improving
                         # 仍在改进：末尾仍有下降趋势（内部用的是最小化，所以历史值递减）
                         t["objective_history"] = range(best_obj_v + 0.2, best_obj_v, length=100)
+                        inferred_history_count += 1
                     end
                 end
                 push!(normalized_trials, t)
@@ -1560,6 +2100,14 @@ compute_diagnostics_full_tool = MCPTool(
                 param_bounds;
                 objective_threshold = Float64(get(params, "objective_threshold", 0.7))
             )
+            result["history_inferred_trials"] = inferred_history_count
+            result["history_source"] = inferred_history_count == 0 ? "observed" : "mixed"
+            if inferred_history_count > 0
+                result["diagnostic_confidence"] = "medium"
+                result["history_note"] = "Some trials used synthesized objective_history from objective_summary; prefer real objective_history for high-confidence diagnostics"
+            else
+                result["diagnostic_confidence"] = "high"
+            end
 
             # ---- 补充输出字段：best_trial_id + parameter_uncertainty ----
             if !isempty(normalized_trials)
@@ -1614,6 +2162,251 @@ compute_diagnostics_full_tool = MCPTool(
     end
 )
 
+auto_calibration_workflow_tool = MCPTool(
+    name = "auto_calibration_workflow",
+    description = "Run an automatic end-to-end calibration workflow aligned with KNOWLEDEGE.md strategies 1-10, including readiness checks, sensitivity screening, objective setup, calibration, diagnostics feedback loops, and optional validation.",
+    input_schema = Dict{String,Any}(
+        "type" => "object",
+        "properties" => Dict{String,Any}(
+            "model" => MODEL_NAME_SCHEMA,
+            "inputs" => WORKFLOW_INPUTS_REQUIRED_FORCING_OBS,
+            "options" => WORKFLOW_OPTIONS_SCHEMA,
+            "goal" => Dict{String,Any}(
+                "type" => "string",
+                "enum" => ["general_fit", "peak_flows", "low_flows", "water_balance", "dynamics"],
+                "default" => "general_fit",
+            ),
+            "budget" => CALIBRATION_BUDGET_SCHEMA,
+            "max_rounds" => Dict{String,Any}(
+                "type" => "integer",
+                "description" => "Maximum auto-feedback rounds (default 3)",
+                "default" => 3,
+            ),
+            "maxiters_per_round" => Dict{String,Any}(
+                "type" => "integer",
+                "description" => "Optional fixed maxiters for each round (useful for lightweight tests)",
+            ),
+            "n_trials_per_round" => Dict{String,Any}(
+                "type" => "integer",
+                "description" => "Optional fixed n_trials for each round",
+            ),
+            "sensitivity_samples" => Dict{String,Any}(
+                "type" => "integer",
+                "description" => "Sensitivity sample size used for screening (default 40)",
+                "default" => 40,
+            ),
+            "run_validation" => Dict{String,Any}(
+                "type" => "boolean",
+                "description" => "Whether to run validation after calibration rounds",
+                "default" => true,
+            ),
+            "save_to_storage" => SAVE_TO_STORAGE_SCHEMA,
+            "seed" => SEED_SCHEMA,
+            "constraints" => PARAMETER_CONSTRAINTS_SCHEMA,
+            "param_bounds" => PARAM_BOUNDS_SCHEMA,
+            "metrics" => METRICS_SCHEMA,
+        ),
+        "required" => ["model", "inputs"],
+    ),
+    handler = function(params)
+        validation_error = validate_required_params(params, ["model", "inputs"])
+        !isnothing(validation_error) && return create_error_response(validation_error)
+
+        try
+            request = UnifiedInputs.normalize_workflow_request(params)
+            model_name = string(request["model"])
+            canonical_model, _, model = Simulation._load_model(model_name)
+            model_info = Discovery.get_model_info(canonical_model)
+
+            forcing_spec = request["inputs"]["forcing"]
+            inspect_payload = _build_inspection_payload(
+                _inspect_source_columns(forcing_spec);
+                model_name = canonical_model,
+                intended_use = "calibration",
+                input_mapping = get(request["options"], "input_mapping", nothing),
+            )
+            if !isempty(get(inspect_payload, "blocking_issues", String[]))
+                return create_error_response(ArgumentError("Data readiness check failed: $(join(inspect_payload["blocking_issues"], "; "))"))
+            end
+
+            resolved = UnifiedInputs.resolve_common_inputs(request, model;
+                require_observation = true,
+                require_parameters = false,
+            )
+            forcing_nt = resolved["forcing_nt"]
+            obs_vec = Float64.(resolved["observation"])
+            runtime_cfg = resolved["runtime"]
+
+            goal = string(get(params, "goal", "general_fit"))
+            budget = string(get(params, "budget", "medium"))
+            max_rounds = max(1, Int(get(params, "max_rounds", 3)))
+            maxiters_fixed = haskey(params, "maxiters_per_round") ? Int(params["maxiters_per_round"]) : nothing
+            n_trials_fixed = haskey(params, "n_trials_per_round") ? Int(params["n_trials_per_round"]) : nothing
+            sens_samples = Int(get(params, "sensitivity_samples", 40))
+            run_validation_flag = Bool(get(params, "run_validation", true))
+            seed = haskey(params, "seed") ? Int(params["seed"]) : nothing
+
+            objective_cfg_text = configure_objectives_tool.handler(Dict("goal" => goal)).text
+            startswith(objective_cfg_text, "Error:") && throw(ArgumentError(objective_cfg_text))
+            objective_cfg = JSON3.read(objective_cfg_text, Dict{String,Any})
+            objective_name = string(objective_cfg["primary_metric"])
+
+            sensitivity = SensitivityAnalysis.run_sensitivity(
+                canonical_model,
+                forcing_nt,
+                obs_vec;
+                method = "morris",
+                n_samples = sens_samples,
+                objective = objective_name,
+                threshold = 0.1,
+                solver_type = get(runtime_cfg, "solver", "DISCRETE"),
+                interp_type = get(runtime_cfg, "interpolation", "LINEAR"),
+            )
+
+            fixed_params = Dict{String,Float64}()
+            bounds = haskey(params, "param_bounds") ? _canonical_param_bounds(params["param_bounds"]) :
+                Dict{String,Vector{Float64}}()
+            constraints_cfg = _normalize_constraints(get(params, "constraints", nothing))
+
+            rounds = Dict{String,Any}[]
+            best_payload = nothing
+            best_score = -Inf
+            previous_diagnostics = nothing
+
+            for round_id in 1:max_rounds
+                algorithm = round_id == 1 ? "AUTO" : (budget == "high" ? "SCE" : "DDS")
+                maxiters = if !(maxiters_fixed === nothing)
+                    maxiters_fixed
+                elseif budget == "low"
+                    round_id == 1 ? 120 : 180
+                elseif budget == "high"
+                    round_id == 1 ? 500 : 900
+                else
+                    round_id == 1 ? 280 : 420
+                end
+                n_trials = if !(n_trials_fixed === nothing)
+                    n_trials_fixed
+                else
+                    round_id == 1 ? 2 : 3
+                end
+
+                run_payload = Calibration.calibrate_model(
+                    canonical_model,
+                    forcing_nt,
+                    obs_vec;
+                    algorithm = algorithm,
+                    maxiters = maxiters,
+                    objective = objective_name,
+                    log_transform = Bool(get(objective_cfg, "log_transform", false)),
+                    log_transform_mode = "auto",
+                    fixed_params = fixed_params,
+                    param_bounds = isempty(bounds) ? nothing : bounds,
+                    constraints = constraints_cfg,
+                    n_trials = n_trials,
+                    solver_type = get(runtime_cfg, "solver", "DISCRETE"),
+                    interp_type = get(runtime_cfg, "interpolation", "LINEAR"),
+                    init_states_dict = haskey(runtime_cfg, "init_states") ? runtime_cfg["init_states"] : nothing,
+                    warm_up = Int(get(params, "warmup", 30)),
+                    budget = budget,
+                    seed = isnothing(seed) ? nothing : seed + 10 * (round_id - 1),
+                )
+
+                diagnostics = Calibration.diagnose_calibration(
+                    run_payload;
+                    boundary_tolerance = 0.01,
+                    convergence_threshold = round_id == 1 ? 0.12 : 0.08,
+                    plateau_window = 20,
+                )
+
+                validation_payload = nothing
+                if run_validation_flag
+                    validation_request = Dict{String,Any}(
+                        "model" => canonical_model,
+                        "inputs" => Dict{String,Any}(
+                            "forcing" => forcing_spec,
+                            "observation" => request["inputs"]["observation"],
+                            "parameters" => Dict{String,Any}(
+                                "source_type" => "json",
+                                "data" => Dict{String,Any}("best_params" => run_payload["best_params"]),
+                            ),
+                        ),
+                        "calibration_period" => Dict("start_index" => 1, "end_index" => Int(round(length(obs_vec) * 0.7))),
+                        "validation_period" => Dict("start_index" => Int(round(length(obs_vec) * 0.7)) + 1, "end_index" => length(obs_vec)),
+                        "metrics" => haskey(params, "metrics") ? params["metrics"] : ["NSE", "KGE", "RMSE"],
+                        "options" => Dict("auto_infer" => true, "strict_infer" => false),
+                    )
+
+                    validation_payload = Validation.run_validation(validation_request)
+                end
+
+                summary = _auto_calibration_iteration_summary(run_payload, diagnostics, validation_payload)
+                summary["round"] = round_id
+                push!(rounds, summary)
+
+                score = summary["quality_score"]
+                if score > best_score
+                    best_score = score
+                    best_payload = run_payload
+                end
+
+                previous_diagnostics = diagnostics
+                if get(diagnostics, "hat_trick", false)
+                    break
+                end
+
+                boundary_adjustments = get(diagnostics, "boundary_adjustments", Dict{String,Any}())
+                if !isempty(boundary_adjustments)
+                    bounds = _apply_boundary_expansion(bounds, boundary_adjustments)
+                end
+            end
+
+            best_payload === nothing && throw(ArgumentError("auto_calibration_workflow did not produce any calibration round"))
+
+            result_id = string(UUIDs.uuid4())
+            output = Dict{String,Any}(
+                "status" => "success",
+                "workflow" => "knowledge_md_auto_calibration",
+                "model" => canonical_model,
+                "model_info" => model_info,
+                "readiness" => inspect_payload,
+                "strategy_alignment" => Dict(
+                    "strategy_1_sensitivity" => true,
+                    "strategy_2_constraints" => constraints_cfg !== nothing,
+                    "strategy_3_auto_log" => true,
+                    "strategy_4_split_validation" => run_validation_flag,
+                    "strategy_5_sampling" => true,
+                    "strategy_6_range_feedback" => true,
+                    "strategy_7_objective_mapping" => true,
+                    "strategy_8_algorithm_selection" => true,
+                    "strategy_9_multiobjective_ready" => true,
+                    "strategy_10_diagnostics_loop" => true,
+                ),
+                "goal" => goal,
+                "budget" => budget,
+                "objective_config" => objective_cfg,
+                "sensitivity" => sensitivity,
+                "rounds" => rounds,
+                "best_result" => best_payload,
+                "final_diagnostics" => previous_diagnostics,
+                "warnings" => vcat(String.(resolved["warnings"]), String[]),
+                "inference_report" => resolved["inference_report"],
+                "result_id" => result_id,
+                "storage_category" => "calibration",
+            )
+
+            if get(params, "save_to_storage", true)
+                Storage.save_result(STORAGE_BACKEND, "calibration", result_id, output)
+            end
+
+            store_last_result(LAST_CALIBRATION_RESULT_HANDLE, best_payload)
+            return TextContent(text = JSON3.write(output))
+        catch e
+            return create_error_response(e)
+        end
+    end,
+)
+
 export compute_metrics_tool, split_data_tool, sensitivity_tool, sensitivity_analysis_tool,
        sampling_tool, calibrate_tool, calibrate_multi_tool, diagnose_tool,
+       diagnose_multi_tool, auto_calibration_workflow_tool,
        configure_objectives_tool, init_calibration_setup_tool, compute_diagnostics_full_tool

@@ -14,6 +14,7 @@ using ComponentArrays
 using DataInterpolations
 using Statistics
 
+using DotEnv
 using ModelContextProtocol
 using ModelContextProtocol: HttpTransport, MCPPrompt, MCPResource, MCPTool, StdioTransport
 
@@ -28,11 +29,13 @@ using GlobalSensitivity
 include("schemas/Schemas.jl")
 using .Schemas
 
+include("env_config.jl")
 include("data_handles.jl")
 include("utils/dataloader.jl")
 include("core/metrics.jl")
 include("core/datasplitter.jl")
 include("core/sampling.jl")
+include("core/optimization.jl")
 include("utils/unified_inputs.jl")
 include("core/simulation.jl")
 include("core/discovery.jl")
@@ -59,6 +62,7 @@ include("tools/workspace.jl")
 include("tools/mcp_surface.jl")
 include("tools/session_cache.jl")
 include("tools/calibration.jl")
+include("tools/storage_results.jl")
 include("tools/ensemble.jl")
 include("tools/validation.jl")
 
@@ -70,28 +74,23 @@ const SERVER_VERSION = "0.1.0"
 const SERVER_DESCRIPTION = "Hydrological modeling MCP server backed by HydroModels.jl."
 
 function parse_env_int(name::String, default::String)
-    value = get(ENV, name, default)
-    try
-        return parse(Int, value)
-    catch err
-        throw(ArgumentError("Environment variable $name must be an integer, got '$value'."))
-    end
+    return parse_config_env_int(name, default)
 end
 
 function build_storage_backend()
-    backend = lowercase(get(ENV, "STORAGE_BACKEND", "file"))
+    backend = lowercase(get_config_env("STORAGE_BACKEND", "file"))
     ttl = parse_env_int("HYDRO_STORAGE_TTL", "604800")
 
     if backend == "redis"
         return Storage.RedisBackend(
-            get(ENV, "REDIS_HOST", "127.0.0.1"),
+            get_config_env("REDIS_HOST", "127.0.0.1"),
             parse_env_int("REDIS_PORT", "6379"),
             "hydro";
             ttl = ttl
         )
     elseif backend == "file"
         return Storage.FileBackend(
-            get(ENV, "HYDRO_STORAGE_PATH", joinpath(homedir(), ".hydro_mcp", "storage"));
+            get_config_env("HYDRO_STORAGE_PATH", joinpath(homedir(), ".hydro_mcp", "storage"));
             ttl = ttl
         )
     end
@@ -102,7 +101,7 @@ end
 const STORAGE_BACKEND = build_storage_backend()
 
 const ALL_TOOLS = MCPTool[
-    load_camels_data_tool,
+    load_caravan_data_tool,
     analyze_distribution_from_handle_tool,
     inspect_hydro_data_tool,
     load_hydro_csv_tool,
@@ -114,6 +113,8 @@ const ALL_TOOLS = MCPTool[
     list_workspace_files_tool,
     list_mcp_surfaces_tool,
     clear_session_cache_tool,
+    list_stored_results_tool,
+    get_stored_result_tool,
     simulation_tool,
     ensemble_parameter_tool,
     validation_tool,
@@ -124,6 +125,8 @@ const ALL_TOOLS = MCPTool[
     sampling_tool,
     calibrate_tool,
     calibrate_multi_tool,
+    diagnose_multi_tool,
+    auto_calibration_workflow_tool,
     diagnose_tool,
     configure_objectives_tool,
     init_calibration_setup_tool,
@@ -132,9 +135,11 @@ const ALL_TOOLS = MCPTool[
 
 const ALL_PROMPTS = MCPPrompt[
     Experts.hydro_expert_prompt,
+    Experts.hydro_minimal_router_prompt,
     Workflows.runoff_workspace_prompt,
     Workflows.calibration_workflow_prompt,
     Workflows.result_review_prompt,
+    Workflows.minimal_tool_routing_prompt,
 ]
 
 function build_resources(storage_backend = STORAGE_BACKEND)
@@ -192,8 +197,12 @@ function run_server()
 end
 
 function run_http_server(;
-    host::String = get(ENV, "MCP_HOST", "127.0.0.1"),
-    port::Int = parse_env_int("MCP_PORT", "3000"),
+    host::String = get_config_env("JULIA_HTTP_HOST", get_config_env("MCP_HOST", "127.0.0.1")),
+    port::Int = try
+        parse(Int, get_config_env("JULIA_HTTP_PORT", get_config_env("MCP_PORT", "3000")))
+    catch
+        parse_env_int("MCP_PORT", "3000")
+    end,
     allowed_origins::Vector{String} = String[]
 )
     transport = HttpTransport(

@@ -28,6 +28,7 @@ function build_resource_template_providers(storage_backend)
         ),
         "hydro://models/{model_name}/knowledge" => args -> model_knowledge_payload(args["model_name"]),
         "hydro://hints/{feature}" => args -> llm_hint_payload(args["feature"]),
+        "hydro://workflows/{intent}" => args -> workflow_playbook_payload(args["intent"]),
     )
 
     for spec in STORED_RESULT_SPECS

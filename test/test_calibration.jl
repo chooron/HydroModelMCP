@@ -249,6 +249,12 @@ end
         @test payload["maxiters"] == 20
         @test payload["n_trials"] == 1
         @test haskey(payload, "best_params")
+        @test haskey(payload, "convergence_assessment")
+        @test payload["convergence_assessment"] isa Dict
+        @test haskey(payload["convergence_assessment"], "status")
+        @test haskey(payload, "result_id")
+        @test payload["result_id"] isa String
+        @test payload["storage_category"] == "calibration"
 
         bounds_lookup = Dict{String,Any}(String(name) => bounds for (name, bounds) in payload["param_bounds"])
         for (pname, pvalue) in payload["best_params"]
@@ -273,6 +279,28 @@ end
         @test calibration_payload["status"] == "success"
 
         diag_payload = _parse_calibration_tool_json(HydroModelMCP.diagnose_tool.handler(Dict()))
+        @test haskey(diag_payload, "summary")
+        @test haskey(diag_payload, "recommendations")
+        @test diag_payload["recommendations"] isa Vector
+    end
+
+    @testset "diagnose_calibration accepts JSON-string calibration result" begin
+        calibration_payload = _parse_calibration_tool_json(HydroModelMCP.calibrate_tool.handler(Dict(
+            "model" => "exphydro",
+            "inputs" => Dict(
+                "forcing" => Dict("source_type" => "csv", "path" => data_file),
+                "observation" => Dict("source_type" => "csv", "path" => data_file, "column" => "flow(mm)"),
+            ),
+            "algorithm" => "BBO",
+            "maxiters" => 20,
+            "n_trials" => 1,
+            "objective" => "KGE",
+        )))
+
+        diag_payload = _parse_calibration_tool_json(HydroModelMCP.diagnose_tool.handler(Dict(
+            "calibration_result" => JSON3.write(calibration_payload),
+        )))
+
         @test haskey(diag_payload, "summary")
         @test haskey(diag_payload, "recommendations")
         @test diag_payload["recommendations"] isa Vector
@@ -350,6 +378,57 @@ end
         @test stage2["train_length"] == 900
         @test stage2["test_length"] == 300
         @test haskey(stage2["test_metrics"], "NSE")
+    end
+
+    @testset "calibrate_model fails fast on infeasible constraints" begin
+        response = HydroModelMCP.calibrate_tool.handler(Dict(
+            "model" => "exphydro",
+            "inputs" => Dict(
+                "forcing" => Dict("source_type" => "csv", "path" => data_file),
+                "observation" => Dict("source_type" => "csv", "path" => data_file, "column" => "flow(mm)"),
+            ),
+            "algorithm" => "BBO",
+            "objective" => "KGE",
+            "maxiters" => 6,
+            "n_trials" => 1,
+            "constraints" => Dict(
+                "pie_share" => Dict(
+                    "parameters" => ["f", "Smax"],
+                    "total" => 10000.0,
+                ),
+            ),
+        ))
+
+        @test startswith(response.text, "Error:")
+        @test occursin("Pie-share infeasible", response.text)
+    end
+
+    @testset "calibrate_model reports constraint diagnostics" begin
+        payload = _parse_calibration_tool_json(HydroModelMCP.calibrate_tool.handler(Dict(
+            "model" => "exphydro",
+            "inputs" => Dict(
+                "forcing" => Dict("source_type" => "csv", "path" => data_file),
+                "observation" => Dict("source_type" => "csv", "path" => data_file, "column" => "flow(mm)"),
+            ),
+            "algorithm" => "BBO",
+            "objective" => "KGE",
+            "maxiters" => 8,
+            "n_trials" => 1,
+            "constraints" => Dict(
+                "delta_method" => Dict(
+                    "inequalities" => [["Tmin", "Tmax"]],
+                ),
+            ),
+            "save_to_storage" => false,
+        )))
+
+        @test payload["status"] == "success"
+        @test haskey(payload, "constraints")
+        @test haskey(payload, "constraint_diagnostics")
+        @test payload["constraint_diagnostics"]["enabled"] == true
+        @test payload["constraint_diagnostics"]["status"] == "ok"
+        @test haskey(payload["constraint_diagnostics"], "checks")
+        @test haskey(payload, "warnings")
     end
 
     @testset "model bounds are aligned by parameter name" begin
@@ -431,7 +510,7 @@ end
     end
 
     @testset "不同优化算法" begin
-        algorithms = ["BBO", "DE", "PSO"]
+        algorithms = ["BBO", "DE", "PSO", "DDS", "SCE"]
 
         for alg in algorithms
             println("\n   -> Testing algorithm: $(alg)")
@@ -495,6 +574,8 @@ end
 
 @testset "compute_diagnostics_full 工具测试" begin
     println("\n   -> Testing compute_diagnostics_full tool...")
+    test_dir = @__DIR__
+    data_file = joinpath(dirname(test_dir), "data", "03604000.csv")
 
     # 场景1: 收敛场景
     @testset "收敛场景" begin
@@ -529,7 +610,95 @@ end
         @test result["convergence_status"] == "converged"
         @test result["is_plateaued"] == true
         @test result["is_still_improving"] == false
+        @test result["history_source"] == "observed"
+        @test result["diagnostic_confidence"] == "high"
         println("   -> 收敛场景测试通过")
+    end
+
+    @testset "策略8 AUTO 算法选择" begin
+        payload = _parse_calibration_tool_json(HydroModelMCP.calibrate_tool.handler(Dict(
+            "model" => "exphydro",
+            "inputs" => Dict(
+                "forcing" => Dict("source_type" => "csv", "path" => data_file),
+                "observation" => Dict("source_type" => "csv", "path" => data_file, "column" => "flow(mm)"),
+            ),
+            "algorithm" => "AUTO",
+            "budget" => "low",
+            "maxiters" => 12,
+            "n_trials" => 1,
+            "objective" => "KGE",
+            "save_to_storage" => false,
+        )))
+
+        @test payload["status"] == "success"
+        @test payload["requested_algorithm"] == "AUTO"
+        @test payload["algorithm"] in ["DDS", "BBO", "SCE"]
+    end
+
+    @testset "约束在优化中生效（delta_method）" begin
+        payload = _parse_calibration_tool_json(HydroModelMCP.calibrate_tool.handler(Dict(
+            "model" => "exphydro",
+            "inputs" => Dict(
+                "forcing" => Dict("source_type" => "csv", "path" => data_file),
+                "observation" => Dict("source_type" => "csv", "path" => data_file, "column" => "flow(mm)"),
+            ),
+            "algorithm" => "DDS",
+            "objective" => "KGE",
+            "maxiters" => 16,
+            "n_trials" => 1,
+            "constraints" => Dict(
+                "delta_method" => Dict(
+                    "inequalities" => [["Tmin", "Tmax"]],
+                ),
+            ),
+            "save_to_storage" => false,
+        )))
+
+        @test payload["status"] == "success"
+        @test payload["constraints_applied"] == true
+        @test payload["best_params"]["Tmin"] < payload["best_params"]["Tmax"]
+    end
+
+    @testset "自动全流程工具可执行" begin
+        payload = _parse_calibration_tool_json(HydroModelMCP.auto_calibration_workflow_tool.handler(Dict(
+            "model" => "exphydro",
+            "inputs" => Dict(
+                "forcing" => Dict("source_type" => "csv", "path" => data_file),
+                "observation" => Dict("source_type" => "csv", "path" => data_file, "column" => "flow(mm)"),
+            ),
+            "goal" => "general_fit",
+            "budget" => "low",
+            "max_rounds" => 1,
+            "maxiters_per_round" => 8,
+            "n_trials_per_round" => 1,
+            "run_validation" => false,
+            "save_to_storage" => false,
+        )))
+
+        @test payload["status"] == "success"
+        @test payload["workflow"] == "knowledge_md_auto_calibration"
+        @test haskey(payload, "strategy_alignment")
+        @test payload["strategy_alignment"]["strategy_1_sensitivity"] == true
+        @test haskey(payload, "best_result")
+        @test haskey(payload, "rounds")
+        @test length(payload["rounds"]) >= 1
+    end
+
+    @testset "多目标诊断工具" begin
+        mock_result = Dict(
+            "objectives" => ["KGE", "LogKGE"],
+            "pareto_front" => [
+                Dict("objectives" => Dict("KGE" => 0.8, "LogKGE" => 0.6)),
+                Dict("objectives" => Dict("KGE" => 0.7, "LogKGE" => 0.75)),
+            ],
+        )
+        payload = _parse_calibration_tool_json(HydroModelMCP.diagnose_multi_tool.handler(Dict(
+            "multiobjective_result" => mock_result,
+        )))
+
+        @test payload["status"] == "success"
+        @test haskey(payload, "degeneracy")
+        @test haskey(payload, "recommendations")
     end
 
     # 场景2: 参数触及边界
@@ -697,4 +866,28 @@ end
     end
 
     println("   [Pass] All new interface compatibility tests passed!")
+end
+
+@testset "compute_diagnostics_full tool confidence metadata" begin
+    trial_results = [
+        Dict(
+            "trial_id" => 1,
+            "best_objective" => 0.8,
+            "final_parameters" => Dict("x1" => 100.0),
+            "objective_summary" => Dict(
+                "plateau_detected" => true,
+                "still_improving" => false,
+            ),
+        ),
+    ]
+
+    payload = _parse_calibration_tool_json(HydroModelMCP.compute_diagnostics_full_tool.handler(Dict(
+        "trial_results" => trial_results,
+    )))
+
+    @test haskey(payload, "history_inferred_trials")
+    @test payload["history_inferred_trials"] >= 1
+    @test payload["history_source"] == "mixed"
+    @test payload["diagnostic_confidence"] == "medium"
+    @test haskey(payload, "history_note")
 end

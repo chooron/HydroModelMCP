@@ -7,22 +7,65 @@ using DataFrames
 using Dates
 using JSON3
 using ModelContextProtocol
-using NPZ
 using Statistics
+
+const TOOL_CARAVAN_GAUGE_ID_SCHEMA = Dict(
+    "oneOf" => [
+        Dict("type" => "integer"),
+        Dict("type" => "string"),
+    ],
+    "description" => "Caravan basin/gauge id. Strings like 01013500 are accepted and should be passed through unchanged, but dataset_name/source_dataset must also be provided.",
+)
+
+const TOOL_CARAVAN_GAUGE_ID_SCHEMA = Dict(
+    "oneOf" => [
+        Dict("type" => "integer"),
+        Dict("type" => "string"),
+    ],
+    "description" => "Caravan gauge/basin id. Prefer the full global id like camels_01013500; local ids such as 01013500 also work when dataset_name/source_dataset is provided.",
+)
+
+const TOOL_CARAVAN_DATASET_NAME_SCHEMA = Dict(
+    "type" => "string",
+    "enum" => ["camels", "camelsaus", "camelsbr", "camelscl", "camelsgb", "hysets", "lamah"],
+    "description" => "Caravan source dataset name.",
+)
 
 const load_camels_data_tool = MCPTool(
     name = "load_camels_data",
-    description = """
-    Load CAMELS data for a gage into the in-memory data handle store.
-    Returns a lightweight handle and summary metadata. dataset_path is optional
-    when CAMESL_DATASET_PATH/CAMELS_DATASET_PATH is set.
-    """,
+    description = "Deprecated legacy entry. CAMELS loading has been retired; use load_caravan_data with dataset_name=camels and gauge_id/gage_id instead.",
     input_schema = Dict(
         "type" => "object",
         "properties" => Dict(
-            "dataset_path" => Dict("type" => "string"),
-            "gage_id" => Dict("type" => "integer"),
-            "gauge_id" => Dict("type" => "integer"),
+            "dataset_name" => TOOL_CARAVAN_DATASET_NAME_SCHEMA,
+            "gauge_id" => TOOL_CARAVAN_GAUGE_ID_SCHEMA,
+            "gage_id" => TOOL_CARAVAN_GAUGE_ID_SCHEMA,
+        ),
+        "required" => [],
+    ),
+    handler = function(params)
+        return create_error_response(ArgumentError(
+            "load_camels_data has been retired. Use load_caravan_data with dataset_name=camels and gauge_id/gage_id instead.",
+        ))
+    end,
+)
+
+const load_caravan_data_tool = MCPTool(
+    name = "load_caravan_data",
+    description = "Load Caravan netCDF basin data into the in-memory data handle store. Supports global gauge ids like camels_01013500, or local ids plus dataset_name/source_dataset.",
+    input_schema = Dict(
+        "type" => "object",
+        "properties" => Dict(
+            "path" => Dict("type" => "string", "description" => "Optional direct path to a Caravan basin netCDF file."),
+            "dataset_root" => Dict("type" => "string", "description" => "Optional Caravan dataset root containing attributes/ and timeseries/."),
+            "dataset_path" => Dict("type" => "string", "description" => "Optional alias of dataset_root for Caravan datasets."),
+            "timeseries_root" => Dict("type" => "string", "description" => "Optional Caravan timeseries root."),
+            "netcdf_root" => Dict("type" => "string", "description" => "Optional Caravan netCDF root; omit it to use CARAVAN_DATASET_ROOT/CARAVAN_NETCDF_ROOT when available."),
+            "dataset_name" => TOOL_CARAVAN_DATASET_NAME_SCHEMA,
+            "source_dataset" => TOOL_CARAVAN_DATASET_NAME_SCHEMA,
+            "gauge_id" => TOOL_CARAVAN_GAUGE_ID_SCHEMA,
+            "gage_id" => TOOL_CARAVAN_GAUGE_ID_SCHEMA,
+            "basin_id" => TOOL_CARAVAN_GAUGE_ID_SCHEMA,
             "variable" => Dict("type" => "string", "default" => "streamflow"),
         ),
         "required" => [],
@@ -30,23 +73,20 @@ const load_camels_data_tool = MCPTool(
     handler = function(params)
         try
             variable = get(params, "variable", "streamflow")
-            gage_id = if haskey(params, "gage_id")
-                params["gage_id"]
-            elseif haskey(params, "gauge_id")
-                params["gauge_id"]
-            else
-                throw(ArgumentError("Missing required parameter: gage_id"))
+            source = Dict{String,Any}("source_type" => "caravan")
+            for key in ("path", "dataset_root", "dataset_path", "timeseries_root", "netcdf_root", "dataset_name", "source_dataset", "gauge_id", "gage_id", "basin_id")
+                haskey(params, key) || continue
+                value = params[key]
+                isempty(strip(string(value))) && continue
+                source[key] = value
             end
 
-            source = Dict{String,Any}(
-                "source_type" => "camels",
-                "gage_id" => gage_id,
-            )
-            if haskey(params, "dataset_path") && !isempty(strip(string(params["dataset_path"])))
-                source["dataset_path"] = string(params["dataset_path"])
-            end
+            haskey(source, "path") || haskey(source, "gauge_id") || haskey(source, "gage_id") || haskey(source, "basin_id") ||
+                throw(ArgumentError("Missing required parameter: gauge_id/gage_id/basin_id or path"))
+            haskey(source, "path") || haskey(source, "dataset_name") || haskey(source, "source_dataset") ||
+                throw(ArgumentError("Missing required parameter: dataset_name/source_dataset"))
 
-            loaded, camels_meta = DataLoader.load_data(Val(:camels), source)
+            loaded, caravan_meta = DataLoader.load_data(Val(:caravan), source)
             obs_values = Float64.(loaded[Symbol("flow(mm)")])
             forcing_nt = (
                 P = Float64.(loaded.P),
@@ -55,51 +95,53 @@ const load_camels_data_tool = MCPTool(
                 Tidx = Float64.(loaded.Tidx),
             )
 
-            gage_id = get(camels_meta, :gage_id, gage_id)
-            handle = "camels_$(gage_id)_$(variable)"
+            canonical_gauge_id = get(caravan_meta, :gauge_id, get(caravan_meta, :gage_id, "unknown"))
+            handle = "caravan_$(canonical_gauge_id)_$(variable)"
 
             stored = Dict{String,Any}(
                 "forcing_nt" => forcing_nt,
                 "obs" => obs_values,
                 "obs_column" => "flow(mm)",
-                "source_path" => get(camels_meta, :path, nothing),
-                "data_type" => "camels",
-                "gage_id" => gage_id,
+                "obs_units" => get(caravan_meta, :flow_units, "mm/day"),
+                "source_path" => get(caravan_meta, :path, nothing),
+                "data_type" => "caravan",
+                "gauge_id" => canonical_gauge_id,
+                "gage_id" => get(caravan_meta, :gage_id, nothing),
+                "dataset_name" => get(caravan_meta, :dataset_name, nothing),
             )
-            if haskey(camels_meta, :dates)
-                stored["dates"] = camels_meta[:dates]
+            if haskey(caravan_meta, :dates)
+                stored["dates"] = caravan_meta[:dates]
             end
             store_data(handle, stored)
 
-            start_date = if haskey(camels_meta, :dates)
-                string(first(camels_meta[:dates]))
-            else
-                nothing
-            end
-            end_date = if haskey(camels_meta, :dates)
-                string(last(camels_meta[:dates]))
-            else
-                nothing
-            end
+            start_date = haskey(caravan_meta, :dates) ? string(first(caravan_meta[:dates])) : nothing
+            end_date = haskey(caravan_meta, :dates) ? string(last(caravan_meta[:dates])) : nothing
 
             metadata = Dict(
-                "name" => "$(variable)_$(gage_id)",
+                "name" => "$(variable)_$(canonical_gauge_id)",
                 "rows" => length(obs_values),
                 "start_date" => start_date,
                 "end_date" => end_date,
-                "units" => "mm/day",
+                "units" => get(caravan_meta, :flow_units, "mm/day"),
                 "mean" => mean(obs_values),
                 "min" => minimum(obs_values),
                 "max" => maximum(obs_values),
-                "dataset_path" => get(camels_meta, :path, nothing),
-                "catchment_index" => get(camels_meta, :catchment_index, nothing),
-                "area_km2" => get(camels_meta, :area_km2, nothing),
-                "dropped_nan_rows" => get(camels_meta, :dropped_nan_rows, 0),
+                "dataset_name" => get(caravan_meta, :dataset_name, nothing),
+                "gauge_id" => canonical_gauge_id,
+                "gage_id" => get(caravan_meta, :gage_id, nothing),
+                "netcdf_path" => get(caravan_meta, :path, nothing),
+                "dataset_root" => get(caravan_meta, :dataset_root, nothing),
+                "area_km2" => get(caravan_meta, :area_km2, nothing),
+                "dropped_nan_rows" => get(caravan_meta, :dropped_nan_rows, 0),
             )
 
             warnings = Any[]
-            dropped_rows = get(camels_meta, :dropped_nan_rows, 0)
+            dropped_rows = get(caravan_meta, :dropped_nan_rows, 0)
             dropped_rows > 0 && push!(warnings, "Dropped $(dropped_rows) rows containing NaN values")
+            units = lowercase(string(get(caravan_meta, :flow_units, "mm/day")))
+            if !occursin("mm", units)
+                push!(warnings, "Caravan streamflow units are reported as '$(get(caravan_meta, :flow_units, "unknown"))'; verify area normalization before using as flow(mm)")
+            end
 
             return create_json_response(Dict(
                 "status" => "success",
@@ -312,6 +354,67 @@ function _infer_series_length(payload)
     return 0
 end
 
+function _inspect_data_handle_columns(source::AbstractDict)
+    handle = if haskey(source, "handle")
+        String(strip(string(source["handle"])))
+    elseif haskey(source, "data_handle")
+        String(strip(string(source["data_handle"])))
+    else
+        throw(ArgumentError("data_handle source must include 'handle' or 'data_handle'"))
+    end
+
+    isempty(handle) && throw(ArgumentError("data_handle source must include a non-empty handle"))
+    has_data(handle) || throw(ArgumentError("Data handle '$handle' not found"))
+
+    payload = get_data(handle)
+    column_names = String[]
+    row_count = 0
+    summary = Dict{String,Any}(
+        "source_type" => "data_handle",
+        "data_handle" => handle,
+    )
+
+    if payload isa NamedTuple
+        column_names = String.(collect(keys(payload)))
+        row_count = _infer_series_length(payload)
+    elseif payload isa AbstractDict
+        if haskey(payload, "forcing_nt") && payload["forcing_nt"] isa NamedTuple
+            append!(column_names, String.(collect(keys(payload["forcing_nt"]))))
+            row_count = max(row_count, _infer_series_length(payload["forcing_nt"]))
+        end
+
+        if haskey(payload, "obs")
+            obs_name = string(get(payload, "obs_column", "obs"))
+            obs_name in column_names || push!(column_names, obs_name)
+            row_count = max(row_count, length(payload["obs"]))
+        end
+
+        if haskey(payload, "simulated")
+            simulated_name = string(get(payload, "simulated_column", "simulated"))
+            simulated_name in column_names || push!(column_names, simulated_name)
+            row_count = max(row_count, length(payload["simulated"]))
+        end
+
+        if isempty(column_names)
+            for (k, v) in pairs(payload)
+                v isa AbstractVector || continue
+                push!(column_names, string(k))
+                row_count = max(row_count, length(v))
+            end
+        end
+
+        haskey(payload, "source_path") && (summary["path"] = payload["source_path"])
+        haskey(payload, "gage_id") && (summary["gage_id"] = payload["gage_id"])
+        haskey(payload, "data_type") && (summary["data_type"] = payload["data_type"])
+    else
+        throw(ArgumentError("Unsupported inspected data_handle payload type: $(typeof(payload))"))
+    end
+
+    summary["row_count"] = row_count
+    summary["column_names"] = unique(column_names)
+    return summary
+end
+
 function _inspect_source_columns(source::AbstractDict)
     source_type = lowercase(string(source["source_type"]))
 
@@ -325,6 +428,10 @@ function _inspect_source_columns(source::AbstractDict)
             "row_count" => nrow(df),
             "column_names" => String.(names(df)),
         )
+    end
+
+    if source_type == "data_handle"
+        return _inspect_data_handle_columns(source)
     end
 
     normalized_source = Dict{String,Any}(string(k) => v for (k, v) in pairs(source))
@@ -465,7 +572,7 @@ end
 
 const inspect_hydro_data_tool = MCPTool(
     name = "inspect_hydro_data",
-    description = "Inspect a csv/json/redis input source and report detected hydrometeorological elements, model-required input coverage, and observed runoff availability before simulation or calibration.",
+    description = "Inspect a csv/json/redis/caravan/data_handle source and report detected hydrometeorological elements, model-required input coverage, and observed runoff availability before simulation or calibration.",
     input_schema = Dict(
         "type" => "object",
         "properties" => Dict(
@@ -473,15 +580,23 @@ const inspect_hydro_data_tool = MCPTool(
                 "type" => "object",
                 "description" => "Source descriptor to inspect. Use the same source_type/path-or-key pattern as other HydroModelMCP tools.",
                 "properties" => Dict(
-                    "source_type" => Dict("type" => "string", "enum" => ["csv", "json", "redis", "camels"]),
+                    "source_type" => Dict("type" => "string", "enum" => ["csv", "json", "redis", "caravan", "data_handle"]),
                     "path" => Dict("type" => "string"),
                     "data" => Dict("type" => "object"),
                     "key" => Dict("type" => "string"),
                     "host" => Dict("type" => "string"),
                     "port" => Dict("type" => "integer"),
-                    "dataset_path" => Dict("type" => "string"),
-                    "gage_id" => Dict("type" => "integer"),
-                    "gauge_id" => Dict("type" => "integer"),
+                    "dataset_path" => Dict("type" => "string", "description" => "Optional alias of Caravan dataset_root."),
+                    "dataset_root" => Dict("type" => "string", "description" => "Optional Caravan dataset root containing attributes/ and timeseries/."),
+                    "timeseries_root" => Dict("type" => "string", "description" => "Optional Caravan timeseries root."),
+                    "netcdf_root" => Dict("type" => "string", "description" => "Optional Caravan netCDF root; omit it to use CARAVAN_DATASET_ROOT/CARAVAN_NETCDF_ROOT when available."),
+                    "dataset_name" => TOOL_CARAVAN_DATASET_NAME_SCHEMA,
+                    "source_dataset" => TOOL_CARAVAN_DATASET_NAME_SCHEMA,
+                    "gage_id" => TOOL_CARAVAN_GAUGE_ID_SCHEMA,
+                    "gauge_id" => TOOL_CARAVAN_GAUGE_ID_SCHEMA,
+                    "basin_id" => TOOL_CARAVAN_GAUGE_ID_SCHEMA,
+                    "handle" => Dict("type" => "string"),
+                    "data_handle" => Dict("type" => "string"),
                 ),
                 "required" => ["source_type"],
             ),
@@ -654,4 +769,4 @@ const load_hydro_csv_tool = MCPTool(
     end,
 )
 
-export load_camels_data_tool, analyze_distribution_from_handle_tool, inspect_hydro_data_tool, load_hydro_csv_tool
+export load_caravan_data_tool, analyze_distribution_from_handle_tool, inspect_hydro_data_tool, load_hydro_csv_tool

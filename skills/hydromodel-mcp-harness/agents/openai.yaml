@@ -1,7 +1,0 @@
-interface:
-  display_name: "HydroModelMCP Harness"
-  short_description: "Run fail-fast automated MCP regression and contract checks."
-  default_prompt: "Use $hydromodel-mcp-harness to execute an automated HydroModelMCP harness run and report any protocol or orchestration failures."
-
-policy:
-  allow_implicit_invocation: true

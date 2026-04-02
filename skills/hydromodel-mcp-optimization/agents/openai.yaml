@@ -1,7 +1,0 @@
-interface:
-  display_name: "HydroModelMCP Optimization"
-  short_description: "Run a low-cost parameter optimization workflow through HydroModelMCP."
-  default_prompt: "Use $hydromodel-mcp-optimization to run a low-cost HydroModelMCP parameter optimization workflow."
-
-policy:
-  allow_implicit_invocation: true

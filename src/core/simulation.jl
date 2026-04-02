@@ -405,6 +405,21 @@ function run_simulation(args::AbstractDict)
     result["params_source"] = params_source
     result["params_seed"] = seed
     result["inference_report"] = resolved["inference_report"]
+
+    forcing_meta_value(key::String) = forcing_metadata isa NamedTuple ?
+        get(forcing_metadata, Symbol(key), nothing) :
+        get(forcing_metadata, key, get(forcing_metadata, Symbol(key), nothing))
+
+    forcing_source = Dict{String,Any}(
+        "source_type" => string(something(forcing_meta_value("source_type"), get(request["inputs"]["forcing"], "source_type", "unknown"))),
+    )
+    for key in ("path", "dataset_name", "source_dataset", "gauge_id", "gage_id", "basin_id")
+        value = forcing_meta_value(key)
+        isnothing(value) && (value = get(request["inputs"]["forcing"], key, nothing))
+        isnothing(value) || (forcing_source[key] = value)
+    end
+    result["forcing_source"] = forcing_source
+
     return result
 end
 

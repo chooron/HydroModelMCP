@@ -20,6 +20,47 @@ function _semantic_candidate_models(query::String, models::Vector{String})
     return [name for name in preferred if name in available]
 end
 
+function _rank_model_matches(query::String, models::Vector{String})
+    normalized = lowercase(strip(query))
+    isempty(normalized) && return Dict{String,Any}[]
+
+    canonical = Discovery.find_model(query)
+    matches = Dict{String,Any}[]
+
+    if !isnothing(canonical)
+        push!(matches, Dict(
+            "name" => canonical,
+            "full_name" => canonical,
+            "match_score" => 1.0,
+            "match_reason" => "best_match",
+        ))
+    end
+
+    for model_name in models
+        !isnothing(canonical) && model_name == canonical && continue
+
+        candidate = lowercase(model_name)
+        score, reason = if startswith(candidate, normalized)
+            0.85, "prefix"
+        elseif occursin(normalized, candidate)
+            0.7, "substring"
+        else
+            0.0, ""
+        end
+
+        score > 0 || continue
+        push!(matches, Dict(
+            "name" => model_name,
+            "full_name" => model_name,
+            "match_score" => score,
+            "match_reason" => reason,
+        ))
+    end
+
+    sort!(matches; by = item -> (-Float64(item["match_score"]), String(item["name"])))
+    return matches
+end
+
 list_models_tool = MCPTool(
     name = "list_models",
     description = "List the hydrological models exposed by HydroModelMCP.",
@@ -45,6 +86,11 @@ find_model_tool = MCPTool(
                 "type" => "string",
                 "description" => "Model name or partial model name.",
             ),
+            "top_k" => Dict(
+                "type" => "integer",
+                "default" => 5,
+                "description" => "Maximum number of ranked matches returned.",
+            ),
         ),
         "required" => ["query"],
     ),
@@ -54,20 +100,7 @@ find_model_tool = MCPTool(
 
         query = params["query"]
         models = Discovery.list_models()
-        matches = Dict{String,Any}[]
-        for model_name in models
-            score = let
-                canonical = Discovery.find_model(query)
-                canonical == model_name ? 1.0 :
-                    (occursin(lowercase(strip(query)), lowercase(model_name)) ? 0.75 : 0.0)
-            end
-            score > 0 || continue
-            push!(matches, Dict(
-                "name" => model_name,
-                "full_name" => model_name,
-                "match_score" => score,
-            ))
-        end
+        matches = _rank_model_matches(query, models)
 
         if isempty(matches)
             fallback_models = _semantic_candidate_models(query, models)
@@ -76,16 +109,21 @@ find_model_tool = MCPTool(
                     "name" => model_name,
                     "full_name" => model_name,
                     "match_score" => max(0.45, 0.7 - 0.05 * (idx - 1)),
+                    "match_reason" => "semantic_fallback",
                 ))
             end
         end
 
-        sort!(matches; by = item -> (-Float64(item["match_score"]), String(item["name"])))
+        top_k = max(1, Int(get(params, "top_k", 5)))
+        top_matches = matches[1:min(end, top_k)]
+        resolved = isempty(top_matches) ? nothing : top_matches[1]["name"]
 
         payload = Dict(
             "status" => "success",
             "query" => query,
-            "matches" => matches,
+            "resolved_model" => resolved,
+            "matches" => top_matches,
+            "next_tools" => ["get_model_info", "get_model_parameters", "get_model_variables"],
         )
         return create_json_response(payload)
     end,

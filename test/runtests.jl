@@ -50,4 +50,8 @@ include("../src/HydroModelMCP.jl")
     @testset "test workspace helpers" begin
         include("test_workspace.jl")
     end
+
+    @testset "test stored result tools" begin
+        include("test_storage_results.jl")
+    end
 end

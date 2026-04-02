@@ -37,8 +37,8 @@ const RUNTIME_FIELDS = Set([
     "config", "output_variable", "input_mapping",
 ])
 
-const COMMON_SOURCE_TYPES = Set([:csv, :json, :redis, :camels, :npz, :data_handle])
-const PARAMETER_SOURCE_TYPES = Set([:csv, :json, :redis, :camels, :npz, :data_handle, :calibration_result])
+const COMMON_SOURCE_TYPES = Set([:csv, :json, :redis, :caravan, :npz, :data_handle])
+const PARAMETER_SOURCE_TYPES = Set([:csv, :json, :redis, :caravan, :npz, :data_handle, :calibration_result])
 
 const SOLVER_ALIASES = Dict{String,String}(
     "ode" => "ODE",
@@ -293,16 +293,41 @@ function _normalize_source_body(::Val{:redis}, spec::Dict{String,Any}, role::Str
 end
 
 function _normalize_source_body(::Val{:camels}, spec::Dict{String,Any}, role::String)
-    gage_id = if haskey(spec, "gage_id")
-        _parse_int_like(spec["gage_id"], "inputs.$role.gage_id")
-    elseif haskey(spec, "gauge_id")
-        _parse_int_like(spec["gauge_id"], "inputs.$role.gage_id")
+    throw(ArgumentError("inputs.$role.source_type=camels has been retired. Use source_type=caravan with dataset_name/source_dataset and gauge_id/gage_id instead."))
+end
+
+function _normalize_source_body(::Val{:caravan}, spec::Dict{String,Any}, role::String)
+    gauge_id = if haskey(spec, "gauge_id")
+        string(spec["gauge_id"])
+    elseif haskey(spec, "gage_id")
+        string(spec["gage_id"])
+    elseif haskey(spec, "basin_id")
+        string(spec["basin_id"])
     else
-        throw(ArgumentError("inputs.$role.gage_id is required for camels source"))
+        throw(ArgumentError("inputs.$role.gauge_id is required for caravan source"))
     end
 
-    normalized = Dict{String,Any}("gage_id" => gage_id)
+    normalized = Dict{String,Any}("gauge_id" => gauge_id)
+    dataset_name = if haskey(spec, "dataset_name")
+        stripped = strip(string(spec["dataset_name"]))
+        isempty(stripped) && throw(ArgumentError("inputs.$role.dataset_name cannot be empty"))
+        stripped
+    elseif haskey(spec, "source_dataset")
+        stripped = strip(string(spec["source_dataset"]))
+        isempty(stripped) && throw(ArgumentError("inputs.$role.source_dataset cannot be empty"))
+        stripped
+    elseif !haskey(spec, "path")
+        throw(ArgumentError("inputs.$role.dataset_name is required for caravan source"))
+    else
+        nothing
+    end
+
+    !(dataset_name === nothing) && (normalized["dataset_name"] = dataset_name)
+    haskey(spec, "dataset_root") && (normalized["dataset_root"] = string(spec["dataset_root"]))
     haskey(spec, "dataset_path") && (normalized["dataset_path"] = string(spec["dataset_path"]))
+    haskey(spec, "timeseries_root") && (normalized["timeseries_root"] = string(spec["timeseries_root"]))
+    haskey(spec, "netcdf_root") && (normalized["netcdf_root"] = string(spec["netcdf_root"]))
+    haskey(spec, "path") && (normalized["path"] = string(spec["path"]))
     return normalized
 end
 
@@ -432,8 +457,13 @@ function _normalize_options_block(raw_options)
     )
 end
 
+function _default_result_source_type(forcing_source_type::String)
+    forcing_source_type in ("csv", "json", "redis") && return forcing_source_type
+    return "csv"
+end
+
 function _normalize_output_block(raw_output, forcing_source_type::String)
-    default_result_type = forcing_source_type == "camels" ? "csv" : forcing_source_type
+    default_result_type = _default_result_source_type(forcing_source_type)
 
     if raw_output === nothing
         output = Dict{String,Any}("result_source_type" => default_result_type)

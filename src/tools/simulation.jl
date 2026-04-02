@@ -1,20 +1,46 @@
 using ModelContextProtocol
 
+const WORKFLOW_CARAVAN_GAUGE_ID_SCHEMA = Dict(
+    "oneOf" => [
+        Dict("type" => "integer"),
+        Dict("type" => "string"),
+    ],
+    "description" => "Caravan gauge/basin id. Prefer the full global id like camels_01013500; local ids such as 01013500 also work when dataset_name/source_dataset is provided.",
+)
+
+const WORKFLOW_CARAVAN_DATASET_NAME_SCHEMA = Dict(
+    "type" => "string",
+    "enum" => ["camels", "camelsaus", "camelsbr", "camelscl", "camelsgb", "hysets", "lamah"],
+    "description" => "Caravan source dataset name.",
+)
+
 const WORKFLOW_SOURCE_SCHEMA = Dict(
     "type" => "object",
-    "description" => "Unified source descriptor.",
+    "description" => "Unified source descriptor. calibration_result sources may provide data/path/handle directly, or aliases such as calibration_result/result/payload/result_id. For source_type=caravan, dataset_name/source_dataset is required together with gauge_id/gage_id/basin_id, and missing gauges must fail directly instead of falling back to local CSV guesses.",
     "properties" => Dict(
-        "source_type" => Dict("type" => "string", "enum" => ["csv", "json", "redis", "camels", "npz", "data_handle", "calibration_result"]),
+        "source_type" => Dict("type" => "string", "enum" => ["csv", "json", "redis", "caravan", "npz", "data_handle", "calibration_result"]),
         "path" => Dict("type" => "string"),
         "data" => Dict("description" => "Inline object or JSON text string for json/calibration_result source."),
+        "calibration_result" => Dict("description" => "Alias for data when source_type=calibration_result."),
+        "result" => Dict("description" => "Alias for data when source_type=calibration_result."),
+        "payload" => Dict("description" => "Alias for data when source_type=calibration_result."),
         "key" => Dict("type" => "string"),
         "host" => Dict("type" => "string"),
         "port" => Dict("type" => "integer"),
-        "dataset_path" => Dict("type" => "string"),
-        "gage_id" => Dict("type" => "integer"),
-        "gauge_id" => Dict("type" => "integer"),
+        "dataset_path" => Dict("type" => "string", "description" => "Optional alias of Caravan dataset_root."),
+        "dataset_root" => Dict("type" => "string", "description" => "Optional Caravan dataset root containing attributes/ and timeseries/."),
+        "timeseries_root" => Dict("type" => "string", "description" => "Optional Caravan timeseries root."),
+        "netcdf_root" => Dict("type" => "string", "description" => "Optional Caravan netCDF root; omit it to use CARAVAN_DATASET_ROOT/CARAVAN_NETCDF_ROOT when available."),
+        "dataset_name" => WORKFLOW_CARAVAN_DATASET_NAME_SCHEMA,
+        "source_dataset" => WORKFLOW_CARAVAN_DATASET_NAME_SCHEMA,
+        "gage_id" => WORKFLOW_CARAVAN_GAUGE_ID_SCHEMA,
+        "gauge_id" => WORKFLOW_CARAVAN_GAUGE_ID_SCHEMA,
+        "basin_id" => WORKFLOW_CARAVAN_GAUGE_ID_SCHEMA,
         "handle" => Dict("type" => "string"),
         "data_handle" => Dict("type" => "string"),
+        "result_id" => Dict("type" => "string"),
+        "category" => Dict("type" => "string"),
+        "storage_category" => Dict("type" => "string"),
         "column" => Dict("type" => "string"),
         "row_index" => Dict("type" => "integer"),
     ),

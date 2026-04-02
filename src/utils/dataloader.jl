@@ -4,9 +4,11 @@ using CSV
 using DataFrames
 using Dates
 using JSON3
-using NPZ
+using NCDatasets
 using Redis
 using UUIDs
+
+import ..get_config_env
 
 function process_io(f::Function, input_config::AbstractDict, args...; save_context = nothing)
     source_type_str = get(input_config, "source_type", "json")
@@ -18,7 +20,18 @@ function process_io(f::Function, input_config::AbstractDict, args...; save_conte
     return save_data(val_type, result, merged_metadata)
 end
 
-const CAMELS_ENV_KEYS = ("CAMESL_DATASET_PATH", "CAMELS_DATASET_PATH")
+const CARAVAN_ROOT_ENV_KEYS = ("CARAVAN_DATASET_ROOT", "CARAVAN_DATASET_PATH")
+const CARAVAN_TIMESERIES_ENV_KEYS = ("CARAVAN_TIMESERIES_ROOT", "CARAVAN_TIMESERIES_PATH")
+const CARAVAN_NETCDF_ENV_KEYS = ("CARAVAN_NETCDF_ROOT", "CARAVAN_NETCDF_PATH")
+const CARAVAN_DATASET_NAMES = Set([
+    "camels",
+    "camelsaus",
+    "camelsbr",
+    "camelscl",
+    "camelsgb",
+    "hysets",
+    "lamah",
+])
 const DATE_COLUMN_HINTS = ("date", "datetime", "timestamp", "time")
 const DATE_PARSE_FORMATS = (
     dateformat"yyyy-mm-dd",
@@ -125,121 +138,296 @@ function _parse_int_like(value, field_name::String)
     end
 end
 
-function _resolve_camels_dataset_path(config::AbstractDict)
-    if haskey(config, "dataset_path")
-        raw = strip(string(config["dataset_path"]))
-        isempty(raw) && throw(ArgumentError("dataset_path cannot be empty"))
-        return raw
-    end
-
-    for env_key in CAMELS_ENV_KEYS
-        env_value = get(ENV, env_key, nothing)
-        if !(env_value === nothing)
-            candidate = strip(String(env_value))
-            isempty(candidate) || return candidate
-        end
-    end
-
-    throw(ArgumentError(
-        "CAMELS source requires dataset_path, or env var CAMESL_DATASET_PATH/CAMELS_DATASET_PATH",
-    ))
+function _has_nonempty_string(config::AbstractDict, key::String)
+    haskey(config, key) || return false
+    return !isempty(strip(string(config[key])))
 end
 
-function _resolve_camels_gage_id(config::AbstractDict)
-    if haskey(config, "gage_id")
-        return _parse_int_like(config["gage_id"], "gage_id")
-    elseif haskey(config, "gauge_id")
-        return _parse_int_like(config["gauge_id"], "gauge_id")
-    end
-
-    throw(ArgumentError("CAMELS source must include 'gage_id' (or alias 'gauge_id')"))
-end
-
-function _camels_find_gage_index(gage_ids, gage_id::Int)
-    for (idx, raw_value) in enumerate(gage_ids)
-        parsed = try
-            _parse_int_like(raw_value, "gage_ids[$idx]")
-        catch
-            continue
-        end
-
-        parsed == gage_id && return idx
+function _first_nonempty_env(keys)
+    for env_key in keys
+        env_value = get_config_env(env_key, nothing)
+        env_value === nothing && continue
+        candidate = strip(String(env_value))
+        isempty(candidate) || return candidate
     end
     return nothing
 end
 
-function _camels_extract_forcings(raw_forcings, catchment_idx::Int)
-    ndims(raw_forcings) == 3 || throw(ArgumentError("CAMELS forcings must be a 3D array"))
-
-    if size(raw_forcings, 3) == 3
-        p = Float64.(vec(raw_forcings[catchment_idx, :, 1]))
-        t = Float64.(vec(raw_forcings[catchment_idx, :, 2]))
-        ep = Float64.(vec(raw_forcings[catchment_idx, :, 3]))
-        return p, t, ep
-    elseif size(raw_forcings, 2) == 3
-        p = Float64.(vec(raw_forcings[catchment_idx, 1, :]))
-        t = Float64.(vec(raw_forcings[catchment_idx, 2, :]))
-        ep = Float64.(vec(raw_forcings[catchment_idx, 3, :]))
-        return p, t, ep
-    elseif size(raw_forcings, 3) >= 3 && size(raw_forcings, 2) < 3
-        p = Float64.(vec(raw_forcings[catchment_idx, :, 1]))
-        t = Float64.(vec(raw_forcings[catchment_idx, :, 2]))
-        ep = Float64.(vec(raw_forcings[catchment_idx, :, 3]))
-        return p, t, ep
-    elseif size(raw_forcings, 2) >= 3 && size(raw_forcings, 3) < 3
-        p = Float64.(vec(raw_forcings[catchment_idx, 1, :]))
-        t = Float64.(vec(raw_forcings[catchment_idx, 2, :]))
-        ep = Float64.(vec(raw_forcings[catchment_idx, 3, :]))
-        return p, t, ep
-    end
-
-    throw(ArgumentError("CAMELS forcings must provide at least 3 variables (P/T/Ep)"))
+function _normalize_caravan_dataset_name(value, field_name::String = "dataset_name")
+    name = lowercase(strip(string(value)))
+    isempty(name) && throw(ArgumentError("$field_name cannot be empty"))
+    name in CARAVAN_DATASET_NAMES || throw(ArgumentError(
+        "$field_name must be one of: $(join(sort!(collect(CARAVAN_DATASET_NAMES)), ", "))",
+    ))
+    return name
 end
 
-function _camels_extract_target(raw_target, catchment_idx::Int)
-    if ndims(raw_target) == 3
-        size(raw_target, 3) >= 1 || throw(ArgumentError("CAMELS target array has no variable dimension"))
-        return Float64.(vec(raw_target[catchment_idx, :, 1]))
-    elseif ndims(raw_target) == 2
-        return Float64.(vec(raw_target[catchment_idx, :]))
+function _resolve_caravan_roots(config::AbstractDict)
+    direct_file_path = nothing
+    if _has_nonempty_string(config, "path")
+        direct_file_path = normpath(abspath(strip(string(config["path"]))))
+        isfile(direct_file_path) || throw(ArgumentError("Caravan file not found: $direct_file_path"))
     end
 
-    throw(ArgumentError("CAMELS target must be a 2D or 3D array"))
+    dataset_root = nothing
+    for key in ("dataset_root", "dataset_path")
+        _has_nonempty_string(config, key) || continue
+        candidate = normpath(abspath(strip(string(config[key]))))
+        if isdir(candidate)
+            dataset_root = candidate
+            break
+        elseif key == "dataset_path" && isfile(candidate)
+            direct_file_path = candidate
+        end
+    end
+
+    if isnothing(dataset_root)
+        raw_root = _first_nonempty_env(CARAVAN_ROOT_ENV_KEYS)
+        if !isnothing(raw_root)
+            candidate = normpath(abspath(raw_root))
+            isdir(candidate) || throw(ArgumentError("CARAVAN dataset root not found: $candidate"))
+            dataset_root = candidate
+        end
+    end
+
+    timeseries_root = nothing
+    if _has_nonempty_string(config, "timeseries_root")
+        candidate = normpath(abspath(strip(string(config["timeseries_root"]))))
+        isdir(candidate) || throw(ArgumentError("Caravan timeseries_root not found: $candidate"))
+        timeseries_root = candidate
+    elseif isnothing(dataset_root)
+        raw_timeseries = _first_nonempty_env(CARAVAN_TIMESERIES_ENV_KEYS)
+        if !isnothing(raw_timeseries)
+            candidate = normpath(abspath(raw_timeseries))
+            isdir(candidate) || throw(ArgumentError("CARAVAN timeseries root not found: $candidate"))
+            timeseries_root = candidate
+        end
+    end
+
+    netcdf_root = nothing
+    if _has_nonempty_string(config, "netcdf_root")
+        candidate = normpath(abspath(strip(string(config["netcdf_root"]))))
+        isdir(candidate) || throw(ArgumentError("Caravan netcdf_root not found: $candidate"))
+        netcdf_root = candidate
+    else
+        raw_netcdf = _first_nonempty_env(CARAVAN_NETCDF_ENV_KEYS)
+        if !isnothing(raw_netcdf)
+            candidate = normpath(abspath(raw_netcdf))
+            isdir(candidate) || throw(ArgumentError("CARAVAN netcdf root not found: $candidate"))
+            netcdf_root = candidate
+        end
+    end
+
+    if isnothing(netcdf_root)
+        if !isnothing(timeseries_root)
+            candidate = joinpath(timeseries_root, "netcdf")
+            isdir(candidate) || throw(ArgumentError("Caravan netcdf directory not found: $candidate"))
+            netcdf_root = candidate
+        elseif !isnothing(dataset_root)
+            candidate = joinpath(dataset_root, "timeseries", "netcdf")
+            isdir(candidate) || throw(ArgumentError("Caravan netcdf directory not found: $candidate"))
+            netcdf_root = candidate
+        end
+    end
+
+    isnothing(netcdf_root) && isnothing(direct_file_path) && throw(ArgumentError(
+        "Caravan source requires path, dataset_root/dataset_path/netcdf_root, or env var CARAVAN_DATASET_ROOT/CARAVAN_NETCDF_ROOT",
+    ))
+
+    if isnothing(dataset_root) && !isnothing(netcdf_root)
+        candidate = normpath(joinpath(netcdf_root, "..", ".."))
+        isdir(joinpath(candidate, "attributes")) && (dataset_root = candidate)
+    end
+
+    attributes_root = isnothing(dataset_root) ? nothing : joinpath(dataset_root, "attributes")
+    return dataset_root, netcdf_root, attributes_root, direct_file_path
 end
 
-function _camels_resolve_area_km2(raw_attributes, catchment_idx::Int)
-    ndims(raw_attributes) == 2 || throw(ArgumentError("CAMELS attributes must be a 2D array"))
+function _resolve_caravan_gauge_token(config::AbstractDict)
+    for key in ("gauge_id", "gage_id", "basin_id")
+        _has_nonempty_string(config, key) || continue
+        return strip(string(config[key]))
+    end
+    throw(ArgumentError("Caravan source must include 'gauge_id', 'gage_id', or 'basin_id'"))
+end
 
-    n_cols = size(raw_attributes, 2)
-    preferred_cols = Int[]
-    n_cols >= 12 && push!(preferred_cols, 12)
-    n_cols >= 13 && push!(preferred_cols, 13)
-
-    for col in preferred_cols
-        area_val = try
-            Float64(raw_attributes[catchment_idx, col])
-        catch
-            NaN
+function _split_caravan_gauge_token(gauge_token::AbstractString)
+    normalized_token = String(gauge_token)
+    parts = split(normalized_token, '_'; limit = 2)
+    if length(parts) == 2
+        dataset_name = lowercase(strip(parts[1]))
+        local_id = strip(parts[2])
+        if dataset_name in CARAVAN_DATASET_NAMES && !isempty(local_id)
+            return dataset_name, String(local_id)
         end
+    end
+    return nothing, normalized_token
+end
 
-        if isfinite(area_val) && area_val > 0
-            return area_val, col
+function _caravan_local_id_candidates(local_id::String, dataset_name::Union{Nothing,String})
+    candidates = String[local_id]
+    if !isnothing(dataset_name) && dataset_name == "camels" && occursin(r"^\d+$", local_id)
+        padded = lpad(local_id, 8, '0')
+        padded in candidates || push!(candidates, padded)
+    end
+    return candidates
+end
+
+function _infer_caravan_identity_from_path(path::String)
+    stem = splitext(basename(path))[1]
+    dataset_name, local_id = _split_caravan_gauge_token(stem)
+    isnothing(dataset_name) && throw(ArgumentError(
+        "Could not infer Caravan dataset/source from file name '$stem'. Expected '<dataset>_<gauge_id>.nc'.",
+    ))
+    return dataset_name, local_id, stem
+end
+
+function _resolve_caravan_timeseries_file(config::AbstractDict, netcdf_root, direct_file_path)
+    if !isnothing(direct_file_path)
+        dataset_name, local_id, canonical_gauge_id = _infer_caravan_identity_from_path(direct_file_path)
+        return direct_file_path, dataset_name, local_id, canonical_gauge_id
+    end
+
+    gauge_token = _resolve_caravan_gauge_token(config)
+    dataset_name = if _has_nonempty_string(config, "dataset_name")
+        _normalize_caravan_dataset_name(config["dataset_name"], "dataset_name")
+    elseif _has_nonempty_string(config, "source_dataset")
+        _normalize_caravan_dataset_name(config["source_dataset"], "source_dataset")
+    else
+        throw(ArgumentError("Caravan source requires dataset_name/source_dataset together with gauge_id/gage_id/basin_id"))
+    end
+
+    prefixed_dataset, local_id = _split_caravan_gauge_token(gauge_token)
+    if !isnothing(prefixed_dataset)
+        if !isnothing(dataset_name) && dataset_name != prefixed_dataset
+            throw(ArgumentError("Caravan dataset_name '$dataset_name' conflicts with gauge_id prefix '$prefixed_dataset'"))
         end
     end
 
-    for col in 1:n_cols
-        area_val = try
-            Float64(raw_attributes[catchment_idx, col])
-        catch
-            NaN
-        end
+    source_dir = joinpath(netcdf_root, dataset_name)
+    isdir(source_dir) || throw(ArgumentError("Caravan dataset '$dataset_name' was not found under netcdf root '$netcdf_root'"))
 
-        if isfinite(area_val) && area_val > 0
-            return area_val, col
+    for candidate_local_id in _caravan_local_id_candidates(local_id, dataset_name)
+        canonical_gauge_id = "$(dataset_name)_$(candidate_local_id)"
+        candidate_path = joinpath(source_dir, canonical_gauge_id * ".nc")
+        isfile(candidate_path) && return candidate_path, dataset_name, candidate_local_id, canonical_gauge_id
+    end
+
+    throw(ArgumentError("Caravan gauge '$gauge_token' was not found under dataset '$dataset_name'"))
+end
+
+function _numeric_vector_from_caravan_var(values)
+    if values isa AbstractVector{<:Union{Missing,Number}}
+        return Float64.(coalesce.(values, NaN))
+    elseif values isa AbstractVector{<:Number}
+        return Float64.(values)
+    end
+
+    flattened = vec(values)
+    return [value isa Missing ? NaN : Float64(value) for value in flattened]
+end
+
+function _parse_cf_time_units(units::AbstractString)
+    matched = match(r"^(seconds|hours|days)\s+since\s+(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}:\d{2}))?", lowercase(strip(units)))
+    isnothing(matched) && return nothing
+    unit_name = matched.captures[1]
+    date_text = matched.captures[2]
+    time_text = something(matched.captures[3], "00:00:00")
+    base_dt = DateTime("$(date_text)T$(time_text)")
+    return unit_name, base_dt
+end
+
+function _decode_caravan_dates(date_var)
+    raw_values = date_var[:]
+    parsed_dates = Date[]
+    parse_ok = true
+    for raw in raw_values
+        parsed = _try_parse_date(raw)
+        if isnothing(parsed)
+            parse_ok = false
+            break
+        end
+        push!(parsed_dates, parsed)
+    end
+    parse_ok && !isempty(parsed_dates) && return parsed_dates
+
+    units = get(date_var.attrib, "units", nothing)
+    if raw_values isa AbstractVector{<:Number} && units isa AbstractString
+        decoded = _parse_cf_time_units(units)
+        if !isnothing(decoded)
+            unit_name, base_dt = decoded
+            for raw in raw_values
+                dt = if unit_name == "days"
+                    base_dt + Day(round(Int, raw))
+                elseif unit_name == "hours"
+                    base_dt + Hour(round(Int, raw))
+                else
+                    base_dt + Dates.Second(round(Int, raw))
+                end
+                push!(parsed_dates, Date(dt))
+            end
+            return parsed_dates
         end
     end
 
-    throw(ArgumentError("Could not resolve a valid positive catchment area from CAMELS attributes"))
+    throw(ArgumentError("Could not decode Caravan 'date' coordinate into calendar dates"))
+end
+
+function _read_caravan_series(ds, candidate_names::Vector{String}, field_name::String)
+    available = Set(String.(collect(keys(ds))))
+    for name in candidate_names
+        name in available || continue
+        return _numeric_vector_from_caravan_var(ds[name][:]), name
+    end
+    throw(ArgumentError(
+        "Caravan source is missing required $(field_name) variable. Tried: $(join(candidate_names, ", ")). Available: $(join(sort!(collect(available)), ", "))",
+    ))
+end
+
+function _extract_caravan_streamflow_units(ds, flow_variable_name::String)
+    if haskey(ds, flow_variable_name)
+        flow_var = ds[flow_variable_name]
+        for key in ("units", "unit", "Units")
+            value = get(flow_var.attrib, key, nothing)
+            value isa AbstractString && !isempty(strip(value)) && return strip(String(value))
+        end
+    end
+
+    global_units = get(ds.attrib, "Units", nothing)
+    if global_units isa AbstractString
+        for line in split(global_units, '\n')
+            stripped = strip(line)
+            startswith(lowercase(stripped), "streamflow:") || continue
+            parts = split(stripped, ':'; limit = 2)
+            length(parts) == 2 || continue
+            candidate = strip(parts[2])
+            isempty(candidate) || return candidate
+        end
+    end
+
+    return nothing
+end
+
+function _load_caravan_metadata(attributes_root, dataset_name::String, canonical_gauge_id::String)
+    isnothing(attributes_root) && return Dict{String,Any}()
+    attr_path = joinpath(attributes_root, dataset_name, "attributes_other_$(dataset_name).csv")
+    isfile(attr_path) || return Dict{String,Any}()
+
+    df = CSV.read(attr_path, DataFrame; types = Dict(:gauge_id => String))
+    :gauge_id in propertynames(df) || return Dict{String,Any}()
+
+    matches = findall(==(canonical_gauge_id), df[!, :gauge_id])
+    isempty(matches) && return Dict{String,Any}()
+    row = df[first(matches), :]
+
+    metadata = Dict{String,Any}("attributes_path" => attr_path)
+    for column_name in names(df)
+        column_name == :gauge_id && continue
+        value = row[column_name]
+        value isa Missing && continue
+        metadata[string(column_name)] = value
+    end
+    return metadata
 end
 
 function load_data(::Val{:csv}, config::AbstractDict)
@@ -261,74 +449,82 @@ function load_data(::Val{:csv}, config::AbstractDict)
 end
 
 function load_data(::Val{:camels}, config::AbstractDict)
-    gage_id = _resolve_camels_gage_id(config)
-    raw_dataset_path = _resolve_camels_dataset_path(config)
-    dataset_path = normpath(abspath(raw_dataset_path))
-    isfile(dataset_path) || throw(ArgumentError("CAMELS dataset not found: $dataset_path"))
+    throw(ArgumentError("CAMELS routing has been retired. Use Caravan with source_type=caravan, dataset_name=camels, and gauge_id/gage_id instead."))
+end
 
-    data = npzread(dataset_path)
-    haskey(data, "gage_ids") || throw(ArgumentError("CAMELS dataset is missing key 'gage_ids'"))
-    haskey(data, "forcings") || throw(ArgumentError("CAMELS dataset is missing key 'forcings'"))
-    haskey(data, "target") || throw(ArgumentError("CAMELS dataset is missing key 'target'"))
-    haskey(data, "attributes") || throw(ArgumentError("CAMELS dataset is missing key 'attributes'"))
+function load_data(::Val{:caravan}, config::AbstractDict)
+    dataset_root, netcdf_root, attributes_root, direct_file_path = _resolve_caravan_roots(config)
+    dataset_path, dataset_name, local_gauge_id, canonical_gauge_id = _resolve_caravan_timeseries_file(config, netcdf_root, direct_file_path)
 
-    gage_ids = data["gage_ids"]
-    catchment_idx = _camels_find_gage_index(gage_ids, gage_id)
-    isnothing(catchment_idx) && throw(ArgumentError("Gage $gage_id not found in CAMELS dataset"))
+    ds = NCDataset(dataset_path)
+    try
+        dates = _decode_caravan_dates(ds["date"])
+        p, p_column = _read_caravan_series(ds, ["total_precipitation_sum", "total_precipitation"], "precipitation")
+        t, t_column = _read_caravan_series(ds, ["temperature_2m_mean", "temperature_2m"], "temperature")
+        ep, ep_column = _read_caravan_series(ds, ["potential_evaporation_sum", "potential_evaporation"], "potential evaporation")
+        flow_mm, flow_column = _read_caravan_series(ds, ["streamflow"], "streamflow")
+        flow_units = _extract_caravan_streamflow_units(ds, flow_column)
 
-    p, t, ep = _camels_extract_forcings(data["forcings"], catchment_idx)
-    target_cfs = _camels_extract_target(data["target"], catchment_idx)
-    area_km2, area_column = _camels_resolve_area_km2(data["attributes"], catchment_idx)
+        tidx = Float64.(dayofyear.(dates))
+        n_samples = minimum((length(dates), length(p), length(t), length(ep), length(flow_mm), length(tidx)))
+        n_samples > 0 || throw(ArgumentError("Caravan series is empty for gauge $canonical_gauge_id"))
 
-    flow_mm = target_cfs .* (1e3) .* 0.0283168 .* 3600 .* 24 ./ (area_km2 .* 1e6)
-    tidx = Float64.(rem.(0:length(p)-1, 365) .+ 1)
+        dates = dates[1:n_samples]
+        p = p[1:n_samples]
+        t = t[1:n_samples]
+        ep = ep[1:n_samples]
+        flow_mm = flow_mm[1:n_samples]
+        tidx = tidx[1:n_samples]
 
-    n_samples = minimum((length(p), length(t), length(ep), length(flow_mm), length(tidx)))
-    n_samples > 0 || throw(ArgumentError("CAMELS series is empty for gage $gage_id"))
+        valid_mask = .!(isnan.(p) .| isnan.(t) .| isnan.(ep) .| isnan.(flow_mm) .| isnan.(tidx))
+        n_invalid = count(.!valid_mask)
 
-    start_date = Date(1980, 10, 1)
-    dates = [start_date + Day(i - 1) for i in 1:n_samples]
+        p = p[valid_mask]
+        t = t[valid_mask]
+        ep = ep[valid_mask]
+        flow_mm = flow_mm[valid_mask]
+        tidx = tidx[valid_mask]
+        dates = dates[valid_mask]
 
-    p = p[1:n_samples]
-    t = t[1:n_samples]
-    ep = ep[1:n_samples]
-    flow_mm = flow_mm[1:n_samples]
-    tidx = tidx[1:n_samples]
+        isempty(p) && throw(ArgumentError("Caravan series contains no valid rows after NaN filtering for gauge $canonical_gauge_id"))
 
-    valid_mask = .!(isnan.(p) .| isnan.(t) .| isnan.(ep) .| isnan.(flow_mm) .| isnan.(tidx))
-    n_invalid = count(.!valid_mask)
+        metadata_row = _load_caravan_metadata(attributes_root, dataset_name, canonical_gauge_id)
+        area_km2 = get(metadata_row, "area", nothing)
 
-    p = p[valid_mask]
-    t = t[valid_mask]
-    ep = ep[valid_mask]
-    flow_mm = flow_mm[valid_mask]
-    tidx = tidx[valid_mask]
-    dates = dates[valid_mask]
+        data_pairs = Pair{Symbol,Vector{Float64}}[
+            :P => p,
+            :T => t,
+            :Ep => ep,
+            :Tidx => tidx,
+            Symbol("flow(mm)") => flow_mm,
+        ]
 
-    isempty(p) && throw(ArgumentError("CAMELS series contains no valid rows after NaN filtering for gage $gage_id"))
+        metadata = (
+            path = dataset_path,
+            dataset_root = dataset_root,
+            source_type = "caravan",
+            dataset_name = dataset_name,
+            gauge_id = canonical_gauge_id,
+            gage_id = local_gauge_id,
+            local_gauge_id = local_gauge_id,
+            area_km2 = area_km2,
+            flow_units = something(flow_units, "mm/day"),
+            dropped_nan_rows = n_invalid,
+            column_names = ["P", "T", "Ep", "Tidx", "flow(mm)"],
+            source_columns = Dict(
+                "P" => p_column,
+                "T" => t_column,
+                "Ep" => ep_column,
+                "flow(mm)" => flow_column,
+            ),
+            dates = dates,
+            metadata = metadata_row,
+        )
 
-    data_pairs = Pair{Symbol,Vector{Float64}}[
-        :P => p,
-        :T => t,
-        :Ep => ep,
-        :Tidx => tidx,
-        Symbol("flow(mm)") => flow_mm,
-        :obs => flow_mm,
-    ]
-
-    metadata = (
-        path = dataset_path,
-        source_type = "camels",
-        gage_id = gage_id,
-        catchment_index = catchment_idx,
-        area_km2 = area_km2,
-        area_column = area_column,
-        dropped_nan_rows = n_invalid,
-        column_names = ["P", "T", "Ep", "Tidx", "flow(mm)", "obs"],
-        dates = dates,
-    )
-
-    return (; data_pairs...), metadata
+        return (; data_pairs...), metadata
+    finally
+        close(ds)
+    end
 end
 
 function load_data(::Val{:json}, config::AbstractDict)

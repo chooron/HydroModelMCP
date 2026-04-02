@@ -47,6 +47,7 @@ function _create_result_index_resource(storage_backend, spec::Dict{String,String
                 "count" => length(result_ids),
                 "uri_template" => spec["item_uri_prefix"] * "/{result_id}",
                 "refresh_note" => "New stored result URIs appear after the server rebuilds its resource registry.",
+                "recommended_tools" => ["list_stored_results", "get_stored_result"],
             )
         end,
     )

@@ -1,0 +1,468 @@
+# HydroModelMCP Results 1 Basic Scenario Pack
+
+## 1. Scope
+
+This document defines the Results 1 scenario pack only.
+
+Its purpose is to establish four bounded claims for a GMD-style development and technical paper:
+
+- HydroModelMCP exposes a unified discovery layer across its published model surface.
+- Discoverable models are minimally executable under the documented unified v2 contract.
+- Compatible models can be compared on one standardized basin under one shared evaluation setup.
+- A simple single-objective calibration-validation loop can be completed end to end with documented tools.
+
+This document explicitly excludes the following topics from Results 1:
+
+- Mai-skill comparison.
+- Self-repair loops.
+- Robustness under malformed inputs.
+- Replay or reproducibility audit as a standalone experiment.
+- Transport comparisons such as stdio versus HTTP.
+- Backend comparisons such as file versus Redis.
+- Skill versus no-skill comparisons.
+- Multi-objective calibration.
+- Complex agent planning.
+- Any retired CAMELS public route.
+
+All scenarios in this pack are evidence-first, tool-grounded, reproducible, and fail-aware.
+
+## 2. GMD-Oriented Design Rules
+
+1. Every scenario shall generate auditable outputs that can feed a paper table, figure, log bundle, or artifact package.
+2. Every scenario shall use only documented HydroModelMCP surfaces published in the current README.
+3. Every scenario shall record explicit pass, partial, and fail outcomes.
+4. Every scenario shall remain executable by weaker LLM clients that can follow ordered tool calls but cannot improvise safely.
+5. Every scenario shall be version-aware. The tested HydroModelMCP commit, tag, or release identifier shall be written into logs and artifact names.
+6. Every scenario shall use the unified v2 request contract where simulation, validation, or calibration payloads are involved.
+7. Official large-sample basin routes shall use Caravan only, with `source_type=caravan` and explicit `dataset_name` plus `gauge_id` or `gage_id`.
+8. No scenario may use `load_camels_data` or `source_type=camels`.
+9. Evaluation claims shall be tied to observations and/or standard model outputs, not only to feature presence.
+10. Unsupported branches shall be logged as skipped with evidence. They shall not be replaced by invented fallback paths.
+11. Resources, templates, and prompts may be inspected for context, but Results 1 execution shall not depend on complex prompt-driven planning.
+12. The scenario output package shall be repository-friendly: deterministic naming, explicit fixture declarations, and no hidden manual interpretation steps.
+
+## 3. Shared Execution Assumptions
+
+- One fixed HydroModelMCP version is under test for the whole experiment batch.
+- One fixed server configuration is used within the same experiment batch.
+- Results 1 does not compare transports or storage backends.
+- Basin data may come from a local CSV fixture or from Caravan, depending on the scenario.
+- Official basin scenarios use Caravan-first and Caravan-only routing.
+- Model outputs should be persisted as normal artifacts when the live tool response exposes artifact paths, result identifiers, or stored-result handles.
+- Low-tier executors shall follow the explicit tool workflow in each scenario card and shall not improvise alternate routes.
+- No scenario may rely on hidden session state from a previous scenario.
+- When a workflow response exposes `warnings` or `inference_report`, those fields shall be captured verbatim in the scenario log.
+- Unified v2 role-based inputs are in effect: `forcing`, `observation`, `parameters`, and `runtime`.
+
+## 4. Unified Logging Schema
+
+The following fields are required in the external scenario log for every run.
+
+| Field | Required content |
+| --- | --- |
+| `scenario_id` | Fixed scenario identifier such as `R1-S1`. |
+| `scenario_name` | Fixed scenario title from this document. |
+| `paper_section` | `Results 1`. |
+| `model_name` | Target model name, or `catalog_batch` when the run is not model-specific. |
+| `basin_id` | Basin identifier or CSV fixture name. Use `none` when the scenario has no basin input. |
+| `input_source_type` | `none`, `csv`, `caravan`, or a scenario-specific pair such as `csv_then_caravan`. |
+| `tool_chain` | Ordered list of the HydroModelMCP tools actually called. |
+| `success` | Boolean terminal outcome for the executed branch. |
+| `failure_type` | `none`, `fixture_missing`, `tool_unavailable`, `readiness_blocked`, `unsupported_model_branch`, `execution_error`, `metric_error`, `artifact_missing`, or `schema_error`. |
+| `warnings` | Array or text block copied from tool responses, or `[]` when absent. |
+| `inference_report` | Machine-readable inference report from the tool response when available, else `null`. |
+| `metrics` | Metric map used for scoring, comparison, or calibration-validation reporting. |
+| `artifacts` | Output paths, result identifiers, stored-result IDs, or figure inputs generated by the run. |
+| `notes` | Short human-readable remarks covering skips, branch choice, or evidence interpretation. |
+
+Recommended additional batch fields are `hydromodelmcp_version`, `run_timestamp`, `server_mode_label`, and `scenario_fixture_label`, but the fields above are the minimum required schema.
+
+## 5. Scenario Portfolio Summary
+
+| ID | Scenario Name | Paper Role | Primary Claim | Priority |
+| --- | --- | --- | --- | --- |
+| `R1-S1` | Model Catalog Coverage and Metadata Completeness | Discovery baseline | The unified discovery layer exposes model catalog, info, parameter metadata, and variable metadata in one consistent surface. | Must run first |
+| `R1-S2` | Minimal Executability Benchmark | Execution baseline | Discoverable models are not only listed; they can be screened and minimally executed under the documented workflow. | High |
+| `R1-S3` | Single-Basin Standardized Cross-Model Simulation Benchmark | Standardized comparison | Compatible models can be compared on one basin under one metric set and one evaluation window. | High |
+| `R1-S4` | Simple Single-Objective Calibration-Validation Closed Loop | Minimal workflow closure | HydroModelMCP supports a bounded scientific loop from split to calibration, validation, and diagnostics. | Final Results 1 anchor |
+
+## 6. Detailed Scenario Cards
+
+### R1-S1 Model Catalog Coverage and Metadata Completeness
+
+**Objective**  
+Verify the unified discovery layer by enumerating all currently listed models and retrieving structured metadata through documented model query tools.
+
+**Why it matters for Results 1**  
+Results 1 begins with the claim that HydroModelMCP is a unified interface rather than a collection of disconnected model-specific entry points. This scenario establishes that baseline without relying on simulation or calibration.
+
+**What it proves**  
+It proves that the server can expose one runtime model catalog and can resolve per-model information, parameter metadata, and variable metadata through documented discovery tools.
+
+**Preconditions**  
+- The server is reachable.
+- The live tool surface includes `list_models`, `get_model_info`, `get_model_parameters`, and `get_model_variables`.
+- No hydrological data fixture is required.
+
+**Model scope**  
+All models returned by `list_models` at runtime.
+
+**Data scope**  
+No basin data. No simulation input. No calibration input.
+
+**Example user requests**  
+- List every model currently exposed by HydroModelMCP and show whether each one has complete metadata.
+- For each discoverable model, return its model information, parameter definitions, and variable definitions.
+- Build a coverage matrix for the model catalog and highlight any metadata gaps.
+- Report which models expose all required discovery surfaces and which ones fail on specific metadata calls.
+- Check the advertised MCP surfaces quickly, then verify real model metadata through the actual model tools.
+
+**Required tool workflow**  
+1. Optionally call `list_mcp_surfaces` once as a quick surface-presence check and record the result.
+2. Call `list_models` and record the returned catalog exactly as exposed by the server.
+3. For each model from `list_models`, call `get_model_info`.
+4. For each model from `list_models`, call `get_model_parameters`.
+5. For each model from `list_models`, call `get_model_variables`.
+6. Build one per-model record containing success state, returned metadata presence, and failure notes for each required discovery call.
+7. Generate the model coverage matrix and the metadata completeness summary from those records.
+
+**Input fixture specification**  
+- Fixture type: runtime catalog snapshot only.
+- Required runtime evidence: one raw `list_models` response and one raw response for each per-model metadata tool.
+- No hydrological dataset is allowed in this scenario.
+
+**Expected outputs**  
+- Model coverage matrix with one row per model and one column each for `get_model_info`, `get_model_parameters`, and `get_model_variables`.
+- Metadata completeness summary with counts of complete, partial, and failed models.
+- Per-model failure notes that preserve exact tool-level failure branches.
+- One catalog artifact that can be cited in the Results 1 discovery subsection.
+
+**Pass / Partial / Fail criteria**  
+Pass: `list_models` succeeds, every listed model is queried with all three metadata tools, the coverage matrix is complete, and every tool outcome is logged.  
+Partial: `list_models` succeeds, but one or more models return incomplete or failed metadata retrieval while the failures are fully logged and summarized.  
+Fail: `list_models` fails, one or more listed models are not queried with the required metadata tools, or the coverage and failure outputs are missing.
+
+**Required logs**  
+- One batch log entry with `model_name=catalog_batch` for the catalog retrieval.
+- One per-model log entry with the ordered discovery `tool_chain`.
+- `failure_type` for every failed metadata branch.
+- `notes` field stating whether `list_mcp_surfaces` was used only as a quick check.
+
+**Tables and figures to generate**  
+- Table R1-1: Model catalog coverage matrix with discovery surface completeness by model.
+- Table R1-2: Metadata completeness summary with counts and percentages.
+- Figure R1-1: Discovery surface success rate by tool.
+- Appendix log table: Per-model failure notes for any missing or errored metadata branch.
+
+**Notes for weaker LLM executors**  
+- Do not replace `list_models` with `list_mcp_surfaces`; the latter is only a quick presence check.
+- Do not attempt simulation or calibration in this scenario.
+- If one metadata tool fails for a model, keep querying the remaining required metadata tools unless the server itself becomes unavailable.
+- Use the shortest valid tool chain: `list_models` plus the three per-model metadata calls.
+
+### R1-S2 Minimal Executability Benchmark
+
+**Objective**  
+Verify that discoverable models are executable under at least one minimal, documented input branch after an explicit readiness check.
+
+**Why it matters for Results 1**  
+Results 1 must show that the server does more than advertise names. This scenario converts catalog entries into evidence of real execution or evidence-based skips.
+
+**What it proves**  
+It proves that minimal execution is available through the documented simulation surface and that readiness gating can separate runnable models from unsupported or insufficient-input branches.
+
+**Preconditions**  
+- The server is reachable.
+- `inspect_hydro_data` and `run_simulation` are available.
+- Two fixed input fixtures are declared before execution: one local CSV fixture and one Caravan basin fixture.
+- No skill-driven planning is used.
+
+**Model scope**  
+All models returned by `list_models`. Each model must end in exactly one terminal status: `runnable`, `skipped`, or `failed`.
+
+**Data scope**  
+- Local CSV fixture branch for minimal simulation.
+- Official Caravan basin branch for minimal simulation.
+- No calibration. No validation benchmark. No multi-basin execution.
+
+**Example user requests**  
+- Check which listed models can run a minimal simulation on the repository CSV fixture and which ones need a Caravan basin instead.
+- Perform a readiness check for every discovered model, then run one minimal simulation only for the models that pass.
+- Use the local CSV fixture first, fall back to the declared Caravan fixture only when the CSV branch is blocked, and explain every skip.
+- Produce a runnable, skipped, and failed table for the full model catalog.
+- For each successful model, return the minimum execution evidence and any warnings or inference details.
+
+**Required tool workflow**  
+1. Call `list_models` to obtain the runtime model catalog.
+2. For each model, optionally call `get_model_info` or `get_model_variables` only if needed to interpret readiness or expected inputs.
+3. For each model, call `inspect_hydro_data` on the local CSV fixture with the intended simulation branch.
+4. If the local CSV branch passes readiness, call `run_simulation` once on the local CSV fixture and stop evaluation for that model.
+5. If the local CSV branch is blocked, call `inspect_hydro_data` on the Caravan fixture using `source_type=caravan` with explicit `dataset_name` and `gauge_id` or `gage_id`.
+6. If the Caravan branch passes readiness, call `run_simulation` once on the Caravan fixture and stop evaluation for that model.
+7. If both branches are blocked, log the model as `skipped` with branch-specific reasons.
+8. If readiness passes but `run_simulation` fails, log the model as `failed` and preserve tool-grounded error evidence.
+9. Aggregate all model outcomes into one runnable/skipped/failed table and one per-model execution note set.
+
+**Input fixture specification**  
+- Local CSV fixture: `source_type=csv`, `path=./data/03604000.csv`.
+- Official Caravan fixture: `source_type=caravan`, `dataset_name=camels`, plus `gauge_id=01013500` or `gage_id=01013500` according to the live schema.
+- Execution rule: the local CSV branch is evaluated first for every model; the Caravan branch is only evaluated when the CSV branch is blocked.
+- Output rule: every successful minimal simulation must preserve its artifact path, result summary, or equivalent structured execution evidence.
+
+**Expected outputs**  
+- Runnable / skipped / failed table for the full model catalog.
+- Per-model minimal execution note stating which branch ran, which branch was blocked, or why the model failed.
+- Skip-reason list grouped by readiness cause.
+- Artifact index for successful minimal simulations.
+
+**Pass / Partial / Fail criteria**  
+Pass: every discoverable model is processed through the declared branch order, every executed model passed readiness before `run_simulation`, and the final table records one terminal status with evidence for each model.  
+Partial: the benchmark covers the full catalog, but some executed models lack artifact details or some skip reasons are weakly specified while the branch outcomes remain auditable.  
+Fail: readiness is skipped, undocumented branches are used, official basin requests do not use `source_type=caravan` with explicit `dataset_name` and `gauge_id` or `gage_id`, or one or more models end without a logged terminal status.
+
+**Required logs**  
+- One per-model log entry for the CSV readiness branch.
+- One per-model log entry for the Caravan readiness branch when the CSV branch is blocked.
+- One per-model terminal log entry containing `success`, `failure_type`, `warnings`, `inference_report`, and `artifacts` where available.
+- One batch summary log with runnable, skipped, and failed counts plus grouped skip reasons.
+
+**Tables and figures to generate**  
+- Table R1-3: Full runnable / skipped / failed matrix with executed branch and reason codes.
+- Table R1-4: Per-model minimal execution notes and artifact evidence.
+- Figure R1-2: Outcome distribution across the catalog.
+- Figure R1-3: Skip-reason frequency by readiness category.
+
+**Notes for weaker LLM executors**  
+- Do not run `run_simulation` before `inspect_hydro_data`.
+- Do not invent a third fixture, fallback route, or manual data rewrite path.
+- `dataset_name=camels` inside a Caravan request is valid; `source_type=camels` is not valid.
+- Use only one successful minimal simulation per model.
+- If both fixtures are blocked, log `skipped`; do not hallucinate a runnable path.
+
+### R1-S3 Single-Basin Standardized Cross-Model Simulation Benchmark
+
+**Objective**  
+Compare compatible models on one fixed basin under one shared observation source, one fixed metric set, and one fixed evaluation window.
+
+**Why it matters for Results 1**  
+Results 1 needs a standardized comparison, not only proof of isolated execution. This scenario produces the first cross-model evidence table grounded in one controlled basin setup.
+
+**What it proves**  
+It proves that HydroModelMCP can support a normalized single-basin benchmark where compatible models are screened, executed, scored, ranked, and excluded transparently when they do not fit the declared setup.
+
+**Preconditions**  
+- One basin fixture is declared before execution and remains fixed for the full scenario.
+- One evaluation window is declared before the first model run and remains fixed for the full scenario.
+- One metric set is declared before the first model run and remains fixed for the full scenario.
+- `inspect_hydro_data`, `run_simulation`, and either `compute_metrics` or `run_validation` are available.
+
+**Model scope**  
+All models from `list_models` that pass readiness for the declared single-basin fixture.
+
+**Data scope**  
+- Exactly one basin.
+- Exactly one forcing and observation condition set.
+- Exactly one evaluation window.
+- No calibration.
+- No multi-basin aggregation.
+
+**Example user requests**  
+- Run all compatible models on one declared basin and rank them under one shared metric set.
+- Use the same evaluation window for every compatible model and log any excluded models with reasons.
+- Produce a single-basin leaderboard with NSE, KGE, and RMSE for all included models.
+- Generate representative hydrographs for the best, median, and weakest included models.
+- Show which models were excluded before execution because the basin fixture did not satisfy their readiness requirements.
+
+**Required tool workflow**  
+1. Call `list_models` to obtain the candidate model set.
+2. For each model, call `inspect_hydro_data` on the declared basin fixture for the intended simulation branch.
+3. If readiness is blocked, log the model in the exclusion log and do not call downstream simulation or scoring tools for that model.
+4. For each ready model, call `run_simulation` on the same basin fixture using the same evaluation window rule.
+5. For each successful simulation, compute the fixed metric set using either `compute_metrics` or `run_validation`.
+6. Record the metric results, warnings, inference reports, and artifact evidence for every included model.
+7. Rank included models under one declared primary ranking metric and preserve the full metric table.
+8. Generate the exclusion log and representative hydrograph set from the included-model results.
+
+**Input fixture specification**  
+- Basin fixture: one declared official basin request using `source_type=caravan`, explicit `dataset_name`, and explicit `gauge_id` or `gage_id`.
+- Default pack fixture: `source_type=caravan`, `dataset_name=camels`, `gauge_id=01013500` or `gage_id=01013500`.
+- Evaluation window: one explicit start date and one explicit end date declared in the scenario manifest before model iteration. The same window shall be used for every included model.
+- Metric set: `NSE`, `KGE`, and `RMSE`.
+- Ranking rule: rank by `NSE`, then use `KGE` as the first tie-breaker.
+
+**Expected outputs**  
+- Metric leaderboard for all included models.
+- Representative hydrograph set using one common observed runoff reference.
+- Exclusion log for every model that did not enter simulation.
+- One benchmark artifact bundle containing the leaderboard table input, hydrograph plotting input, and exclusion notes.
+
+**Pass / Partial / Fail criteria**  
+Pass: all candidate models are screened, every included model is evaluated under the same basin, metric set, and evaluation window, the leaderboard is complete, and every excluded model has a logged reason.  
+Partial: the fixed setup is respected, but some included models have incomplete artifact packaging or the hydrograph set is incomplete while the metric and exclusion evidence remains usable.  
+Fail: more than one basin is used, the metric set or evaluation window changes across models, excluded models are not logged, or downstream scoring is reported without prior readiness evidence.
+
+**Required logs**  
+- One scenario manifest log containing the basin fixture, evaluation window, metric set, and ranking metric.
+- One per-model readiness log.
+- One per-model execution and scoring log with `metrics`, `warnings`, `inference_report`, and `artifacts`.
+- One exclusion log entry for every blocked model with `failure_type=readiness_blocked` or `failure_type=unsupported_model_branch`.
+
+**Tables and figures to generate**  
+- Table R1-5: Single-basin leaderboard with NSE, KGE, RMSE, and inclusion status.
+- Table R1-6: Exclusion log with model name and exclusion reason.
+- Figure R1-4: Ranked performance plot for the included models.
+- Figure R1-5: Representative hydrographs for the best, median, and weakest included models under the common basin setup.
+
+**Notes for weaker LLM executors**  
+- Do not turn this into a multi-basin experiment.
+- Do not change the metric set after the first scored model.
+- Use the minimal valid chain: readiness, simulation, scoring, logging.
+- If a model is unsupported for the declared basin setup, log it as excluded and continue.
+- Do not invent a second observation source or a custom ranking rule.
+
+### R1-S4 Simple Single-Objective Calibration-Validation Closed Loop
+
+**Objective**  
+Demonstrate one bounded research workflow from data split through single-objective calibration, holdout validation, and diagnostic review.
+
+**Why it matters for Results 1**  
+This is the closing scenario for Results 1. It converts the earlier discovery and execution evidence into a minimal scientific loop that can support a development and technical paper claim.
+
+**What it proves**  
+It proves that HydroModelMCP can support a simple single-objective calibration-validation workflow with one shared split policy, one shared budget rule, one shared objective family, and post-run diagnostics.
+
+**Preconditions**  
+- One declared basin fixture with forcing and observed runoff is available.
+- One model subset of one to three representative models is declared before execution.
+- One shared calibration budget rule is declared before execution.
+- One shared train/validation split rule is declared before execution.
+- One shared objective family is declared before execution.
+- `split_data`, `configure_objectives`, `calibrate_model`, `run_validation`, and at least one diagnostic tool are available.
+
+**Model scope**  
+One to three representative models selected from the runtime catalog after readiness confirmation for the declared basin fixture. Do not expand this scenario to the entire catalog.
+
+**Data scope**  
+- Exactly one basin.
+- One chronological train/validation split.
+- Single-objective calibration only.
+- No multi-objective calibration.
+- No self-repair loop.
+
+**Example user requests**  
+- Using one declared basin, split the record chronologically, calibrate a small model subset under the same budget, and validate each result on the holdout period.
+- Configure one single-objective runoff-fit target and run the same closed loop for up to three representative models.
+- Return calibration metrics, validation metrics, best parameters, and overfitting gaps for each selected model.
+- Diagnose each calibration result and summarize which model generalizes best on the validation period.
+- Keep the workflow strictly inside the documented HydroModelMCP calibration and validation tools without any agentic recovery loop.
+
+**Required tool workflow**  
+1. Call `list_models` and select one to three representative models for this scenario. Record the fixed subset before calibration begins.
+2. For each selected model, call `inspect_hydro_data` on the declared basin fixture for the intended calibration branch.
+3. If readiness is blocked for a selected model, log the model as `skipped` and do not call downstream calibration tools for that model.
+4. Call `split_data` once using the shared chronological split rule and record the exact train and validation boundaries.
+5. Call `configure_objectives` once using the shared single-objective family and preserve the returned objective configuration.
+6. For each ready selected model, call `calibrate_model` under the same declared budget rule and the unified v2 request shape.
+7. For each successful calibration, call `run_validation` on the holdout period using the calibrated result and the same declared metric set.
+8. For each successful calibration, call `diagnose_calibration` and, when available, `compute_diagnostics_full`.
+9. Aggregate calibration metrics, validation metrics, best-parameter summaries, and overfitting gap summaries across the selected model subset.
+
+**Input fixture specification**  
+- Basin fixture: one declared official basin request using `source_type=caravan`, explicit `dataset_name`, and explicit `gauge_id` or `gage_id`.
+- Default pack fixture: reuse the same official basin fixture as `R1-S3` unless the experiment manifest explicitly overrides it.
+- Split rule: chronological 80/20 split, implemented once through `split_data`, with the first 80 percent for calibration and the last 20 percent for validation.
+- Objective family: one single-objective discharge-fit target configured through `configure_objectives`; the pack default is an NSE-oriented objective family.
+- Budget rule: one fixed numerical calibration budget applied identically to every selected model; the pack default is 100 objective evaluations per model, and the exact live-tool field mapping shall be written into the log.
+- Metric reporting set: `NSE`, `KGE`, and `RMSE` for both calibration and validation summaries when the live surface supports them.
+
+**Expected outputs**  
+- Calibration versus validation metrics for every selected and successfully calibrated model.
+- Best-parameter summary for every selected and successfully calibrated model.
+- Overfitting gap summary computed from calibration and validation metrics under the same metric family.
+- Diagnostic notes from `diagnose_calibration` and, when available, `compute_diagnostics_full`.
+- Artifact bundle containing calibration outputs, validation outputs, and any returned result identifiers.
+
+**Pass / Partial / Fail criteria**  
+Pass: the scenario respects one fixed model subset, one fixed split rule, one fixed single-objective family, and one fixed budget rule; every successful model returns best parameters, calibration metrics, validation metrics, and diagnostics; every skipped model is explicitly logged.  
+Partial: the closed loop is mostly completed, but one or more selected models end in logged skips or diagnostics are incomplete while the train/validation separation and budget fairness remain intact.  
+Fail: calibration and validation are run on the same unsplit series, the budget or objective changes across models, multi-objective logic is introduced, or the workflow relies on self-repair or undocumented orchestration.
+
+**Required logs**  
+- One scenario manifest log containing the selected model subset, split rule, objective family, metric set, and budget rule.
+- One per-model readiness log.
+- One per-model calibration log with best parameters, warnings, inference report, and artifacts.
+- One per-model validation log with holdout metrics.
+- One per-model diagnostics log with the chosen diagnostic tools and summarized findings.
+- One final summary log containing overfitting gaps and the final model ranking by validation performance.
+
+**Tables and figures to generate**  
+- Table R1-7: Calibration versus validation metrics for the selected model subset.
+- Table R1-8: Best-parameter summary and declared calibration budget per model.
+- Table R1-9: Overfitting gap summary with calibration-minus-validation performance differences.
+- Figure R1-6: Train versus validation performance comparison for the selected models.
+- Figure R1-7: Validation hydrographs for the best calibrated model and one comparison model.
+- Appendix diagnostic table: Condensed findings from `diagnose_calibration` and `compute_diagnostics_full`.
+
+**Notes for weaker LLM executors**  
+- Keep the subset small. Do not expand this scenario to all models.
+- Do not use `auto_calibration_workflow` unless the harness explicitly requires it and logs the exact bounded configuration. The default path is the explicit manual tool chain above.
+- Do not change the split, objective, or budget once the scenario manifest is declared.
+- If a selected model is unsupported for the declared basin or calibration branch, log `skipped` and continue with the remaining selected models.
+- Do not invent self-correction loops, alternative optimizers, or hidden preprocessing steps.
+
+## 7. Assembly Guidance for the Paper
+
+Results 1 should be assembled in the following order.
+
+1. Catalog coverage.
+The paper output is Table R1-1, Table R1-2, and Figure R1-1 from `R1-S1`.
+
+2. Minimal executability.
+The paper output is Table R1-3, Table R1-4, Figure R1-2, and Figure R1-3 from `R1-S2`.
+
+3. Single-basin benchmark.
+The paper output is Table R1-5, Table R1-6, Figure R1-4, and Figure R1-5 from `R1-S3`.
+
+4. Simple calibration-validation loop.
+The paper output is Table R1-7, Table R1-8, Table R1-9, Figure R1-6, Figure R1-7, and the appendix diagnostic table from `R1-S4`.
+
+This ordering should be preserved in the manuscript because the logic of Results 1 is cumulative: discoverability first, executability second, standardized comparison third, and minimal closed-loop workflow last.
+
+## 8. Low-Tier Executor Instructions
+
+1. Do not invent tools, prompts, resources, fields, basin sources, or hidden preprocessing steps.
+2. Do not switch to the retired CAMELS public route. `dataset_name=camels` inside a Caravan request is allowed; `source_type=camels` and `load_camels_data` are not allowed.
+3. Do not skip readiness checks before simulation or calibration.
+4. Do not convert Results 1 into agentic planning experiments, self-repair experiments, or skill-comparison experiments.
+5. Keep each run auditable by preserving raw tool outputs, warnings, inference reports, and artifact references.
+6. If a branch is unsupported, log it as skipped or excluded rather than hallucinating a workaround.
+7. Use the documented unified v2 contract whenever simulation, validation, or calibration payloads are involved.
+8. Prefer the shortest valid tool chain that satisfies the scenario card.
+9. Do not mix basins, split rules, metric sets, or budgets within a single scenario.
+10. If the declared fixture is missing, stop that branch and log `fixture_missing`; do not substitute an undocumented fixture.
+
+## 9. Master Expansion Prompt
+
+Use the following reusable sub-prompt to expand any one scenario from this pack into a lower-level execution document.
+
+Expand scenario `[SCENARIO_ID] [SCENARIO_NAME]` from `examples/paper-results-r1-basic-scenarios.md` into a strict execution document for HydroModelMCP.
+
+Output the following sections in English and keep the content implementation-ready:
+
+1. Executable test case.
+2. Ordered pseudocode.
+3. Fixture checklist.
+4. Reporting table skeleton.
+
+Mandatory requirements:
+
+1. Use only documented HydroModelMCP surfaces from the current README.
+2. Preserve the scenario objective, exclusions, and fixed workflow order from the source scenario card.
+3. Use the unified v2 contract for simulation, validation, and calibration requests.
+4. If the scenario uses an official basin route, use `source_type=caravan` with explicit `dataset_name` and `gauge_id` or `gage_id`.
+5. Do not introduce CAMELS public-route calls, skill-comparison branches, transport comparisons, backend comparisons, self-repair loops, or multi-objective calibration.
+6. Make pass, partial, fail, skip, and exclusion branches explicit and auditable.
+7. Preserve the required logs, required outputs, and paper table or figure targets from the source scenario card.
+8. If the live tool surface does not support a branch, mark it as skipped with evidence instead of inventing a replacement path.
+
+The expanded result must remain directly executable by a weaker LLM client that can follow numbered instructions but should not be trusted to improvise safely.

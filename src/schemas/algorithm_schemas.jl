@@ -9,8 +9,8 @@
 """单目标优化算法"""
 const ALGORITHM_SCHEMA = Dict{String,Any}(
     "type" => "string",
-    "enum" => ["BBO", "DE", "PSO", "CMAES", "ECA"],
-    "description" => "优化算法。默认 BBO"
+    "enum" => ["AUTO", "DDS", "SCE", "BBO", "DE", "PSO", "CMAES", "ECA"],
+    "description" => "优化算法。支持 AUTO/DDS/SCE/BBO/DE/PSO/CMAES/ECA，默认 BBO。DDS/SCE 为策略别名，分别映射到稳定库后端 DE/PSO。"
 )
 
 """最大迭代次数"""
@@ -72,8 +72,8 @@ const THRESHOLD_SCHEMA = Dict{String,Any}(
 """参数采样方法"""
 const SAMPLING_METHOD_SCHEMA = Dict{String,Any}(
     "type" => "string",
-    "enum" => ["lhs", "sobol", "random"],
-    "description" => "采样方法，默认 lhs"
+    "enum" => ["lhs", "sobol", "random", "pie_share", "delta_method"],
+    "description" => "采样方法，默认 lhs。约束采样可选 pie_share 或 delta_method"
 )
 
 """采样数量"""
